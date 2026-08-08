@@ -13,24 +13,24 @@ public class LogicGates {
         return new Bit(!in.getAsBool());
     }
 
-    public static Bit and(Bit a, Bit b) {
-        return new Bit(a.getAsBool() && b.getAsBool());
+    public static Bit and(Bit inA, Bit inB) {
+        return new Bit(inA.getAsBool() && inB.getAsBool());
     }
 
-    public static Bit or(Bit a, Bit b) {
-        return new Bit(a.getAsBool() || b.getAsBool());
+    public static Bit or(Bit inA, Bit inB) {
+        return new Bit(inA.getAsBool() || inB.getAsBool());
     }
 
-    public static Bit xor(Bit a, Bit b) {
-        return new Bit(a.getAsBool() != b.getAsBool());
+    public static Bit xor(Bit inA, Bit inB) {
+        return new Bit(inA.getAsBool() != inB.getAsBool());
     }
 
-    public static Bit nand(Bit a, Bit b) {
-        return new Bit(!(a.getAsBool() && b.getAsBool()));
+    public static Bit nand(Bit inA, Bit inB) {
+        return new Bit(!(inA.getAsBool() && inB.getAsBool()));
     }
 
-    public static Bit nor(Bit a, Bit b) {
-        return new Bit(!(a.getAsBool() || b.getAsBool()));
+    public static Bit nor(Bit inA, Bit inB) {
+        return new Bit(!(inA.getAsBool() || inB.getAsBool()));
     }
     // destination based from here to avoid alloc
     /**
@@ -43,35 +43,35 @@ public class LogicGates {
     /**
      * Writes {@code a AND b} into {@code result}. No allocation.
      */
-    public static void and(Bit a, Bit b, Bit result) {
-        result.set(a.getAsBool() && b.getAsBool());
+    public static void and(Bit inA, Bit inB, Bit result) {
+        result.set(inA.getAsBool() && inB.getAsBool());
     }
 
     /**
      * Writes {@code a OR b} into {@code result}. No allocation.
      */
-    public static void or(Bit a, Bit b, Bit result) {
-        result.set(a.getAsBool() || b.getAsBool());
+    public static void or(Bit inA, Bit inB, Bit result) {
+        result.set(inA.getAsBool() || inB.getAsBool());
     }
 
     /**
      * Writes {@code a XOR b} into {@code result}. No allocation.
      */
-    public static void xor(Bit a, Bit b, Bit result) {
-        result.set(a.getAsBool() != b.getAsBool());
+    public static void xor(Bit inA, Bit inB, Bit result) {
+        result.set(inA.getAsBool() != inB.getAsBool());
     }
 
     /**
      * Writes {@code !(a AND b)} into {@code result}. No allocation.
      */
-    public static void nand(Bit a, Bit b, Bit result) {
-        result.set(!(a.getAsBool() && b.getAsBool()));
+    public static void nand(Bit inA, Bit inB, Bit result) {
+        result.set(!(inA.getAsBool() && inB.getAsBool()));
     }
 
     /**
      * Writes {@code !(a OR b)} into {@code result}. No allocation.
      */
-    public static void nor(Bit a, Bit b, Bit result) {
-        result.set(!(a.getAsBool() || b.getAsBool()));
+    public static void nor(Bit inA, Bit inB, Bit result) {
+        result.set(!(inA.getAsBool() || inB.getAsBool()));
     }
 }
