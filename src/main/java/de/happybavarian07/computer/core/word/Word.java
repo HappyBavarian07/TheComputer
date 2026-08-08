@@ -2,6 +2,7 @@ package de.happybavarian07.computer.core.word;
 
 import de.happybavarian07.computer.core.bit.Bit;
 import de.happybavarian07.computer.core.bit.FixedWidthBits;
+import de.happybavarian07.computer.util.Architecture;
 
 /*
  * @Author HappyBavarian07
@@ -9,14 +10,14 @@ import de.happybavarian07.computer.core.bit.FixedWidthBits;
  */
 public final class Word extends FixedWidthBits {
     public Word() {
-        super(32);
+        super(Architecture.WORD_BITS);
     }
 
     public Word(Bit[] bitArray) {
-        super(32, bitArray);
+        super(Architecture.WORD_BITS, bitArray);
     }
 
     public Word(Number number) {
-        super(32, number);
+        super(Architecture.WORD_BITS, number);
     }
 }

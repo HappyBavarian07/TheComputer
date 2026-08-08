@@ -2,6 +2,7 @@ package de.happybavarian07.computer.core.address;
 
 import de.happybavarian07.computer.core.bit.Bit;
 import de.happybavarian07.computer.core.bit.FixedWidthBits;
+import de.happybavarian07.computer.util.Architecture;
 
 /*
  * @Author HappyBavarian07
@@ -9,14 +10,14 @@ import de.happybavarian07.computer.core.bit.FixedWidthBits;
  */
 public class Address extends FixedWidthBits {
     public Address() {
-        super(16);
+        super(Architecture.ADDRESS_BITS);
     }
 
     public Address(Bit[] bitArray) {
-        super(16, bitArray);
+        super(Architecture.ADDRESS_BITS, bitArray);
     }
 
     public Address(Number number) {
-        super(16, number);
+        super(Architecture.ADDRESS_BITS, number);
     }
 }

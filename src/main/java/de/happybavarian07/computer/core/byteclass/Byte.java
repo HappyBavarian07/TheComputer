@@ -2,6 +2,7 @@ package de.happybavarian07.computer.core.byteclass;
 
 import de.happybavarian07.computer.core.bit.Bit;
 import de.happybavarian07.computer.core.bit.FixedWidthBits;
+import de.happybavarian07.computer.util.Architecture;
 
 /*
  * @Author HappyBavarian07
@@ -9,14 +10,14 @@ import de.happybavarian07.computer.core.bit.FixedWidthBits;
  */
 public final class Byte extends FixedWidthBits {
     public Byte() {
-        super(8);
+        super(Architecture.BYTE_BITS);
     }
 
     public Byte(Bit[] bitArray) {
-        super(8, bitArray);
+        super(Architecture.BYTE_BITS, bitArray);
     }
 
     public Byte(Number number) {
-        super(8, number);
+        super(Architecture.BYTE_BITS, number);
     }
 }

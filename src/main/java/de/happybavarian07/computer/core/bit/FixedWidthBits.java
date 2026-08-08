@@ -103,6 +103,16 @@ public class FixedWidthBits {
         bitArray[index].set(bit.getAsBool());
     }
 
+    public void set(int index, boolean bit) {
+        if (index < 0 || index >= size) {
+            throw new IndexOutOfBoundsException(
+                    "Bit index out of bounds: " + index
+            );
+        }
+
+        bitArray[index].set(bit);
+    }
+
     public void set(Bit[] bitArray) {
         if (bitArray == null) {
             throw new IllegalArgumentException("Bit array cannot be null.");
