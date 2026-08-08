@@ -8,7 +8,15 @@ import de.happybavarian07.computer.core.bit.FixedWidthBits;
  * @Date August 08, 2026 | 12:56
  */
 public final class Byte extends FixedWidthBits {
+    public Byte() {
+        super(8);
+    }
+
     public Byte(Bit[] bitArray) {
         super(8, bitArray);
+    }
+
+    public Byte(Number number) {
+        super(8, number);
     }
 }
