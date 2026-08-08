@@ -8,8 +8,8 @@
 
 ## 📌 Active Task State
 * **Current Ticket in Alignment**: `MEM-001` (64 KiB Memory System)
-* **Status**: `TODO` / Awaiting Alignment
-* **Branch**: Pending creation (`ticket/MEM-001-ram`)
+* **Status**: `IN_PROGRESS`
+* **Branch**: `ticket/MEM-001-ram`
 
 ---
 

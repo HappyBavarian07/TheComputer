@@ -90,7 +90,7 @@
       "id": "MEM-001",
       "title": "Implement 64 KiB Memory System",
       "module": "memory",
-      "status": "TODO",
+      "status": "IN_PROGRESS",
       "priority": "HIGH",
       "phase": "Phase 8 — Memory",
       "dependencies": ["CORE-002"],
