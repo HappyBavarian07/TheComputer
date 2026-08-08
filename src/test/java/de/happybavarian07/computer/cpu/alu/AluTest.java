@@ -125,6 +125,14 @@ class AluTest {
     }
 
     @Test
+    void testShrMsb() {
+        inA.set(0x80000000);
+        alu.execute(inA, inB, AluOp.SHR, outResult, flagZ, flagN, flagC, flagV);
+        assertEquals(0x40000000, outResult.getAsInt(), "Result is wrong.");
+        assertFlags(false, false, false, false);
+    }
+
+    @Test
     void testShrCarry() {
         inA.set(1);
         alu.execute(inA, inB, AluOp.SHR, outResult, flagZ, flagN, flagC, flagV);

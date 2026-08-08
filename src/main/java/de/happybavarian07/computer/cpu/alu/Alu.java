@@ -104,7 +104,7 @@ public class Alu {
     public void shr(Word inA, Word outResult, Bit flagZ, Bit flagN, Bit flagC, Bit flagV) {
         flagC.set(inA.get(WORD_SIZE - 1).getAsBool());
 
-        for (int i = 1; i < WORD_SIZE - 1; i++) {
+        for (int i = 0; i < WORD_SIZE - 1; i++) {
             outResult.set(i + 1, inA.get(i));
         }
 
