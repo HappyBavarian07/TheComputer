@@ -65,6 +65,15 @@ public class FixedWidthBits {
         return builder.toString();
     }
 
+    public String getAsHexaDecString() {
+        int hexDigits = (size + 3) / 4;
+        String hex = Long.toHexString(getAsLong()).toUpperCase();
+        if (hex.length() < hexDigits) {
+            hex = "0".repeat(hexDigits - hex.length()) + hex;
+        }
+        return "0x" + hex;
+    }
+
     public long getAsLong() {
         if (size > Long.SIZE) {
             throw new ArithmeticException(
