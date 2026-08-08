@@ -14,11 +14,11 @@ You are the AI Team Lead, Architectural Reviewer, and Repository Maintainer for 
 ---
 
 ## 📌 Active Task Context
-* **Current Ticket**: `CORE-004` (Half Adder and Full Adder Circuits)
+* **Current Ticket**: `CORE-005` (32-Bit Word Adder and Subtractor)
 * **Module**: `core`
 * **Phase**: `Phase 4 — Arithmetic Logic`
 * **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/CORE-004-adders`
+* **Branch**: `ticket/CORE-005-word-adder`
 
 ---
 

@@ -7,9 +7,9 @@
 ---
 
 ## 📌 Active Task State
-* **Current Ticket in Alignment**: `CORE-004` (Half Adder and Full Adder Circuits)
+* **Current Ticket in Alignment**: `CORE-005` (32-Bit Word Adder and Subtractor)
 * **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/CORE-004-adders`
+* **Branch**: `ticket/CORE-005-word-adder`
 
 ---
 
