@@ -17,8 +17,8 @@ You are the AI Team Lead, Architectural Reviewer, and Repository Maintainer for 
 * **Current Ticket**: `CORE-004` (Half Adder and Full Adder Circuits)
 * **Module**: `core`
 * **Phase**: `Phase 4 — Arithmetic Logic`
-* **Status**: Aligned / Awaiting Branch & Implementation
-* **Task Database**: [`docs/tasks.json`](file:///c:/Users/quiri/IdeaProjects/TheComputer/docs/tasks.json)
+* **Status**: `IN_PROGRESS`
+* **Branch**: `ticket/CORE-004-adders`
 
 ---
 

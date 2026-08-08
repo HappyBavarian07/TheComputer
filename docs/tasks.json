@@ -42,7 +42,7 @@
       "id": "CORE-004",
       "title": "Implement Half Adder and Full Adder Circuits",
       "module": "core",
-      "status": "TODO",
+      "status": "IN_PROGRESS",
       "priority": "HIGH",
       "phase": "Phase 4 — Arithmetic Logic",
       "dependencies": ["CORE-003"],

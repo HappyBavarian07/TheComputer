@@ -8,8 +8,8 @@
 
 ## 📌 Active Task State
 * **Current Ticket in Alignment**: `CORE-004` (Half Adder and Full Adder Circuits)
-* **Status**: Alignment Complete / Awaiting Implementation
-* **Branch**: Pending creation (`ticket/CORE-004-adders`)
+* **Status**: `IN_PROGRESS`
+* **Branch**: `ticket/CORE-004-adders`
 
 ---
 
