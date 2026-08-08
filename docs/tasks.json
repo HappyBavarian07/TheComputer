@@ -54,7 +54,7 @@
       "id": "CORE-005",
       "title": "Implement 32-Bit Word Adder and Subtractor",
       "module": "core",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "priority": "HIGH",
       "phase": "Phase 4 — Arithmetic Logic",
       "dependencies": ["CORE-004"],

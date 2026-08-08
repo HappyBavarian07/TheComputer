@@ -7,9 +7,9 @@
 ---
 
 ## 📌 Active Task State
-* **Current Ticket in Alignment**: `CORE-005` (32-Bit Word Adder and Subtractor)
-* **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/CORE-005-word-adder`
+* **Current Ticket in Alignment**: `CPU-001` (Arithmetic Logic Unit — ALU)
+* **Status**: `TODO` / Awaiting Alignment
+* **Branch**: Pending creation (`ticket/CPU-001-alu`)
 
 ---
 
