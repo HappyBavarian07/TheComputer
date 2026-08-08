@@ -17,8 +17,8 @@ You are the AI Team Lead, Architectural Reviewer, and Repository Maintainer for 
 * **Current Ticket**: `CPU-002` (Register File and Special Registers)
 * **Module**: `cpu`
 * **Phase**: `Phase 7 — Registers`
-* **Status**: `TODO`
-* **Branch**: Pending creation (`ticket/CPU-002-registers`)
+* **Status**: `IN_PROGRESS`
+* **Branch**: `ticket/CPU-002-registers`
 
 ---
 

@@ -78,7 +78,7 @@
       "id": "CPU-002",
       "title": "Implement Register File and Special Registers",
       "module": "cpu",
-      "status": "TODO",
+      "status": "IN_PROGRESS",
       "priority": "HIGH",
       "phase": "Phase 7 — Registers",
       "dependencies": ["CORE-002"],
