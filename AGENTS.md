@@ -7,9 +7,9 @@
 ---
 
 ## 📌 Active Task State
-* **Current Ticket in Alignment**: `CPU-002` (Register File and Special Registers)
-* **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/CPU-002-registers`
+* **Current Ticket in Alignment**: `MEM-001` (64 KiB Memory System)
+* **Status**: `TODO` / Awaiting Alignment
+* **Branch**: Pending creation (`ticket/MEM-001-ram`)
 
 ---
 

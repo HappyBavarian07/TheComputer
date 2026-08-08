@@ -14,11 +14,11 @@ You are the AI Team Lead, Architectural Reviewer, and Repository Maintainer for 
 ---
 
 ## 📌 Active Task Context
-* **Current Ticket**: `CPU-002` (Register File and Special Registers)
-* **Module**: `cpu`
-* **Phase**: `Phase 7 — Registers`
-* **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/CPU-002-registers`
+* **Current Ticket**: `MEM-001` (64 KiB Memory System)
+* **Module**: `memory`
+* **Phase**: `Phase 8 — Memory`
+* **Status**: `TODO`
+* **Branch**: Pending creation (`ticket/MEM-001-ram`)
 
 ---
 
