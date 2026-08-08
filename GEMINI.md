@@ -14,11 +14,11 @@ You are the AI Team Lead, Architectural Reviewer, and Repository Maintainer for 
 ---
 
 ## 📌 Active Task Context
-* **Current Ticket**: `CPU-001` (Arithmetic Logic Unit — ALU)
+* **Current Ticket**: `CPU-002` (Register File and Special Registers)
 * **Module**: `cpu`
-* **Phase**: `Phase 5 — ALU`
-* **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/CPU-001-alu`
+* **Phase**: `Phase 7 — Registers`
+* **Status**: `TODO`
+* **Branch**: Pending creation (`ticket/CPU-002-registers`)
 
 ---
 
