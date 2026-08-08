@@ -1,0 +1,126 @@
+{
+  "project": "TheComputer",
+  "version": "1.0.0",
+  "tasks": [
+    {
+      "id": "CORE-001",
+      "title": "Implement Bit and FixedWidthBits Ownership Model",
+      "module": "core",
+      "status": "DONE",
+      "priority": "HIGH",
+      "phase": "Phase 1 — Fundamental Data Types",
+      "dependencies": [],
+      "description": "Pre-allocate internal Bit array slots in FixedWidthBits to enforce exclusive ownership and prevent aliasing bugs when setting/getting bits.",
+      "acceptance_criteria": "1. FixedWidthBits pre-allocates internal Bit array in constructor.\n2. set(Bit[]) and set(int, Bit) perform deep copy of bit values.\n3. set(String) updates existing owned slots.\n4. Copy constructor performs full deep copy.",
+      "notes": "Completed in previous refactor."
+    },
+    {
+      "id": "CORE-002",
+      "title": "Implement Byte, Word, and Address Data Primitives",
+      "module": "core",
+      "status": "DONE",
+      "priority": "HIGH",
+      "phase": "Phase 1 — Fundamental Data Types",
+      "dependencies": ["CORE-001"],
+      "description": "Implement Byte (8-bit), Word (32-bit), and Address (16-bit) types extending FixedWidthBits.",
+      "acceptance_criteria": "1. Byte constrained to 8 bits.\n2. Word constrained to 32 bits.\n3. Address constrained to 16 bits.\n4. Conversion utilities to long/int and String operate accurately.",
+      "notes": "Completed basic implementations in core package."
+    },
+    {
+      "id": "CORE-003",
+      "title": "Implement LogicGates with Zero-Allocation API",
+      "module": "core",
+      "status": "DONE",
+      "priority": "HIGH",
+      "phase": "Phase 2 — Logic Gates",
+      "dependencies": ["CORE-001"],
+      "description": "Implement NOT, AND, OR, XOR, NAND, NOR logic gates with both allocating and destination-based (zero-allocation) overloads.",
+      "acceptance_criteria": "1. LogicGates provides void destination-based methods for all gate types.\n2. No allocations occur during destination-based gate executions.\n3. Allocating methods preserved for unit tests.",
+      "notes": "Completed in previous refactor."
+    },
+    {
+      "id": "CORE-004",
+      "title": "Implement Half Adder and Full Adder Circuits",
+      "module": "core",
+      "status": "TODO",
+      "priority": "HIGH",
+      "phase": "Phase 4 — Arithmetic Logic",
+      "dependencies": ["CORE-003"],
+      "description": "Build single-bit Half Adder (Sum, Carry) and Full Adder (Sum, CarryOut) using destination-based logic gates.",
+      "acceptance_criteria": "1. HalfAdder calculates Sum = A XOR B, Carry = A AND B without object allocation.\n2. FullAdder calculates Sum and CarryOut for A, B, CarryIn.\n3. Complete unit test suite verifying truth tables for all input combinations.",
+      "notes": "Target for next sprint alignment."
+    },
+    {
+      "id": "CORE-005",
+      "title": "Implement 32-Bit Word Adder and Subtractor",
+      "module": "core",
+      "status": "TODO",
+      "priority": "HIGH",
+      "phase": "Phase 4 — Arithmetic Logic",
+      "dependencies": ["CORE-004"],
+      "description": "Cascade 32 Full Adders to construct a zero-allocation 32-bit Word adder/subtractor with Carry and Overflow output.",
+      "acceptance_criteria": "1. 32-bit addition computes sum in destination Word.\n2. Subtraction implemented using two's complement inversion + CarryIn=1.\n3. Correct generation of CarryOut and Two's Complement Overflow signals.\n4. Comprehensive unit tests covering boundary values (0, MaxInt, MinInt, overflow).",
+      "notes": "Requires scratch bit pre-allocation in adder instance."
+    },
+    {
+      "id": "CPU-001",
+      "title": "Implement Arithmetic Logic Unit (ALU)",
+      "module": "cpu",
+      "status": "TODO",
+      "priority": "HIGH",
+      "phase": "Phase 5 — ALU",
+      "dependencies": ["CORE-005"],
+      "description": "Construct 32-bit ALU supporting ADD, SUB, AND, OR, XOR, NOT, Shift Left, Shift Right, and flag generation (Z, N, C, V).",
+      "acceptance_criteria": "1. ALU accepts two input Words, control op, and writes to output Word.\n2. Sets Z (Zero), N (Negative), C (Carry), V (Overflow) flags accurately.\n3. Execution is entirely zero-allocation.",
+      "notes": "Main CPU execution component."
+    },
+    {
+      "id": "CPU-002",
+      "title": "Implement Register File and Special Registers",
+      "module": "cpu",
+      "status": "TODO",
+      "priority": "HIGH",
+      "phase": "Phase 7 — Registers",
+      "dependencies": ["CORE-002"],
+      "description": "Implement 16 general-purpose 32-bit registers (R0-R15) and special registers (PC, SP, IR, FLAGS).",
+      "acceptance_criteria": "1. RegisterFile allows indexed read/write of R0-R15.\n2. Dedicated accessors for PC (16-bit address), SP (16-bit address), IR (Word), and FLAGS.\n3. Reset method clears register state.",
+      "notes": "Foundation for CPU execution state."
+    },
+    {
+      "id": "MEM-001",
+      "title": "Implement 64 KiB Memory System",
+      "module": "memory",
+      "status": "TODO",
+      "priority": "HIGH",
+      "phase": "Phase 8 — Memory",
+      "dependencies": ["CORE-002"],
+      "description": "Implement 64 KiB byte-addressable RAM with 16-bit Address lookup, Word read/write (little-endian), and bounds checking.",
+      "acceptance_criteria": "1. ReadByte / WriteByte at 16-bit Address.\n2. ReadWord / WriteWord handles little-endian 4-byte encoding.\n3. Out-of-bounds access throws explicit exception.",
+      "notes": "Memory storage layer."
+    },
+    {
+      "id": "ISA-001",
+      "title": "Define Instruction Set Architecture & Decoder",
+      "module": "isa",
+      "status": "TODO",
+      "priority": "HIGH",
+      "phase": "Phase 10 — ISA Design",
+      "dependencies": ["CPU-001", "CPU-002", "MEM-001"],
+      "description": "Specify instruction format, opcodes (MOV, LOAD, STORE, ADD, SUB, AND, OR, JMP, JZ, PUSH, POP, HALT), and instruction decoder.",
+      "acceptance_criteria": "1. Complete Opcode enum and bit layout specification.\n2. InstructionDecoder converts raw Word into decoded Instruction record.\n3. Verification test suite for encoding and decoding all instructions.",
+      "notes": "Bridge between CPU hardware and software."
+    },
+    {
+      "id": "CPU-003",
+      "title": "Implement CPU Fetch-Decode-Execute Cycle",
+      "module": "cpu",
+      "status": "TODO",
+      "priority": "HIGH",
+      "phase": "Phase 12 — CPU Cycle",
+      "dependencies": ["ISA-001"],
+      "description": "Implement CPU main loop driving Fetch (from PC), Decode, Execute via ALU/Memory, and Writeback.",
+      "acceptance_criteria": "1. Single-step execution executes one instruction and advances PC.\n2. Execute loop runs until HALT instruction or interrupt.\n3. Test execution of hand-encoded machine code programs.",
+      "notes": "Core CPU engine."
+    }
+  ]
+}
