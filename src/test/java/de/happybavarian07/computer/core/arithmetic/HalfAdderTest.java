@@ -73,9 +73,9 @@ class HalfAdderTest {
     }
 
     public void assertFields(boolean inACorrect, boolean inBCorrect, boolean outSumCorrect, boolean outCarryCorrect) {
-        assertEquals(inA.getAsBool(), inACorrect, "inA is wrong.");
-        assertEquals(inB.getAsBool(), inBCorrect, "inB is wrong.");
-        assertEquals(outSum.getAsBool(), outSumCorrect, "Sum is wrong.");
-        assertEquals(outCarry.getAsBool(), outCarryCorrect, "Carry is wrong.");
+        assertEquals(inACorrect, inA.getAsBool(), "inA is wrong.");
+        assertEquals( inBCorrect, inB.getAsBool(),"inB is wrong.");
+        assertEquals(outSumCorrect, outSum.getAsBool(), "Sum is wrong.");
+        assertEquals(outCarryCorrect, outCarry.getAsBool(), "Carry is wrong.");
     }
 }
