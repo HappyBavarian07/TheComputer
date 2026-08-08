@@ -8,8 +8,8 @@
 
 ## 📌 Active Task State
 * **Current Ticket in Alignment**: `CPU-001` (Arithmetic Logic Unit — ALU)
-* **Status**: `TODO` / Awaiting Alignment
-* **Branch**: Pending creation (`ticket/CPU-001-alu`)
+* **Status**: `IN_PROGRESS`
+* **Branch**: `ticket/CPU-001-alu`
 
 ---
 

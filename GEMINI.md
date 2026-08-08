@@ -17,8 +17,8 @@ You are the AI Team Lead, Architectural Reviewer, and Repository Maintainer for 
 * **Current Ticket**: `CPU-001` (Arithmetic Logic Unit — ALU)
 * **Module**: `cpu`
 * **Phase**: `Phase 5 — ALU`
-* **Status**: `TODO`
-* **Branch**: Pending creation (`ticket/CPU-001-alu`)
+* **Status**: `IN_PROGRESS`
+* **Branch**: `ticket/CPU-001-alu`
 
 ---
 
