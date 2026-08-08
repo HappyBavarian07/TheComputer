@@ -6,6 +6,13 @@
 
 ---
 
+## 📌 Active Task State
+* **Current Ticket in Alignment**: `CORE-004` (Half Adder and Full Adder Circuits)
+* **Status**: Alignment Complete / Awaiting Implementation
+* **Branch**: Pending creation (`ticket/CORE-004-adders`)
+
+---
+
 ## 🚫 Code Generation Restrictions (Minimal/No Direct Java Code Output)
 * The agent **MUST NOT** output full `.java` source code files or large blocks of direct Java implementation code in chat responses unless explicitly requested.
 * The agent's role is restricted to:
