@@ -20,4 +20,16 @@ public class Address extends FixedWidthBits {
     public Address(Number number) {
         super(Architecture.ADDRESS_BITS, number);
     }
+
+    public void increment() {
+        set((getAsInt() + 1) & 0xFFFF);
+    }
+
+    public void add(int offset) {
+        set((getAsInt() + offset) & 0xFFFF);
+    }
+
+    public void offset(int offset, Address dest) {
+        dest.set((getAsInt() + offset) & 0xFFFF);
+    }
 }
