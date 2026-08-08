@@ -5,6 +5,7 @@ package de.happybavarian07.computer.util;
  * @Date August 08, 2026 | 19:35
  */
 public class Architecture {
+
     private Architecture() {}
 
     // Data unit sizes in bits
@@ -13,6 +14,7 @@ public class Architecture {
     public static final int WORD_BITS = 32; // Architecture.WORD_BITS
 
     // System sizes
+    public static final int GPR_COUNT = 16; // General-purpose Registers
     public static final int MEMORY_SIZE_BYTES = 65536; // Architecture.MEMORY_SIZE_BYTES
     public static final int GENERAL_REGISTER_COUNT = 16; // Architecture.GENERAL_REGISTER_COUNT
 }
