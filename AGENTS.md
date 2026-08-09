@@ -7,9 +7,9 @@
 ---
 
 ## 📌 Active Task State
-* **Current Ticket in Alignment**: `MEM-001` (64 KiB Memory System)
-* **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/MEM-001-ram`
+* **Current Ticket in Alignment**: `BUS-001` (32-bit Data & 16-bit Address Bus System)
+* **Status**: `TODO` / Awaiting Alignment
+* **Branch**: Pending creation (`ticket/BUS-001-interconnect`)
 
 ---
 

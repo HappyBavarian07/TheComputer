@@ -14,11 +14,11 @@ You are the AI Team Lead, Architectural Reviewer, and Repository Maintainer for 
 ---
 
 ## 📌 Active Task Context
-* **Current Ticket**: `MEM-001` (64 KiB Memory System)
-* **Module**: `memory`
-* **Phase**: `Phase 8 — Memory`
-* **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/MEM-001-ram`
+* **Current Ticket**: `BUS-001` (32-bit Data & 16-bit Address Bus System)
+* **Module**: `bus`
+* **Phase**: `Phase 9 — Bus`
+* **Status**: `TODO`
+* **Branch**: Pending creation (`ticket/BUS-001-interconnect`)
 
 ---
 
