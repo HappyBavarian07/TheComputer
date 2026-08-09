@@ -8,8 +8,8 @@
 
 ## 📌 Active Task State
 * **Current Ticket in Alignment**: `BUS-001` (32-bit Data & 16-bit Address Bus System)
-* **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/BUS-001-interconnect`
+* **Status**: `DONE`
+* **Branch**: `main`
 
 ---
 
