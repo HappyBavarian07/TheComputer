@@ -8,16 +8,17 @@
 
 ## 📌 Active Task State
 * **Current Ticket in Alignment**: `BUS-001` (32-bit Data & 16-bit Address Bus System)
-* **Status**: `TODO` / Awaiting Alignment
-* **Branch**: Pending creation (`ticket/BUS-001-interconnect`)
+* **Status**: `IN_PROGRESS`
+* **Branch**: `ticket/BUS-001-interconnect`
 
 ---
 
-## 🚫 Code Generation Restrictions (Minimal/No Direct Java Code Output)
-* The agent **MUST NOT** output full `.java` source code files or large blocks of direct Java implementation code in chat responses unless explicitly requested.
+## 🚫 Code Generation Restrictions (No Direct/Copy-Pasteable Java Code)
+* The agent **MUST NOT** output full `.java` source code files or copy-pasteable Java implementation snippets in chat responses unless explicitly requested.
+* **Abstract Guidance Only**: When asked for further details or pseudocode, the agent must provide architectural blueprints, Mermaid/ASCII diagrams, conceptual dataflow, and high-level abstract logic steps (e.g., algorithm outlines without copy-pasteable Java syntax).
 * The agent's role is restricted to:
-  * Architectural design blueprints, dataflow diagrams, and interface contracts.
-  * Package structures, class/method signatures, and invariants.
+  * Architectural design blueprints, dataflow diagrams, and high-level abstract pseudocode.
+  * Package structures, interface contracts, class/method signatures, and invariants.
   * Bit ownership rules, memory boundaries, and verification strategies.
 
 ---

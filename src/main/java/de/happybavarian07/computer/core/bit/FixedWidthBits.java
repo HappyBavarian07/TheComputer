@@ -138,6 +138,22 @@ public class FixedWidthBits {
         }
     }
 
+    public void set(FixedWidthBits other) {
+        if (other == null) {
+            throw new IllegalArgumentException("Source cannot be null.");
+        }
+
+        if (other.size != size) {
+            throw new IllegalArgumentException(
+                    "Expected " + size + " bits, got " + other.size + "."
+            );
+        }
+
+        for (int i = 0; i < size; i++) {
+            this.bitArray[i].set(other.bitArray[i].getAsBool());
+        }
+    }
+
     public void set(String stringInput) {
         if (stringInput == null) {
             throw new IllegalArgumentException("Input cannot be null.");
