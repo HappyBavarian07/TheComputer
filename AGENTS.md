@@ -7,9 +7,9 @@
 ---
 
 ## 📌 Active Task State
-* **Current Ticket in Alignment**: `ISA-001` (Define Instruction Set Architecture & Decoder)
-* **Status**: `DONE`
-* **Branch**: `main`
+* **Current Ticket in Alignment**: `CPU-003` (Implement CPU Fetch-Decode-Execute Cycle)
+* **Status**: `IN_PROGRESS`
+* **Branch**: `ticket/CPU-003-fetch-execute-cycle`
 
 ---
 

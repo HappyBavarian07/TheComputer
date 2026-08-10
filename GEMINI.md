@@ -15,11 +15,11 @@ You are the AI Team Lead, Architectural Reviewer, and Repository Maintainer for 
 ---
 
 ## 📌 Active Task Context
-* **Current Ticket**: `ISA-001` (Define Instruction Set Architecture & Decoder)
-* **Module**: `isa`
-* **Phase**: `Phase 10 — ISA Design`
-* **Status**: `DONE`
-* **Branch**: `main`
+* **Current Ticket**: `CPU-003` (Implement CPU Fetch-Decode-Execute Cycle)
+* **Module**: `cpu`
+* **Phase**: `Phase 12 — CPU Cycle`
+* **Status**: `IN_PROGRESS`
+* **Branch**: `ticket/CPU-003-fetch-execute-cycle`
 
 ---
 

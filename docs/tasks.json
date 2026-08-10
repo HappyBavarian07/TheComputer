@@ -114,7 +114,7 @@
       "id": "CPU-003",
       "title": "Implement CPU Fetch-Decode-Execute Cycle",
       "module": "cpu",
-      "status": "TODO",
+      "status": "IN_PROGRESS",
       "priority": "HIGH",
       "phase": "Phase 12 — CPU Cycle",
       "dependencies": ["ISA-001"],
