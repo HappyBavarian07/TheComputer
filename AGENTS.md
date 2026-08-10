@@ -8,8 +8,8 @@
 
 ## 📌 Active Task State
 * **Current Ticket in Alignment**: `ISA-001` (Define Instruction Set Architecture & Decoder)
-* **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/ISA-001-instruction-decoder`
+* **Status**: `DONE`
+* **Branch**: `main`
 
 ---
 

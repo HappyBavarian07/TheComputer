@@ -18,8 +18,8 @@ You are the AI Team Lead, Architectural Reviewer, and Repository Maintainer for 
 * **Current Ticket**: `ISA-001` (Define Instruction Set Architecture & Decoder)
 * **Module**: `isa`
 * **Phase**: `Phase 10 — ISA Design`
-* **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/ISA-001-instruction-decoder`
+* **Status**: `DONE`
+* **Branch**: `main`
 
 ---
 
