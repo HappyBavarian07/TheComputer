@@ -5,32 +5,32 @@ package de.happybavarian07.computer.isa;
  * @Date August 10, 2026 | 15:48
  */
 public enum OpCode {
-    // Data Move
+    // System & Data Movement
+    NOP(0x00),
     MOV(0x01),
     LOAD(0x02),
-    STORE(0x03),
+    LOADR(0x03),
+    STORE(0x04),
+    STORER(0x05),
 
-    // Arithmetic
-    ADD(0x04),
-    SUB(0x05),
+    // Arithmetic & Logic
+    ADD(0x10),
+    SUB(0x11),
+    AND(0x12),
+    OR(0x13),
+    XOR(0x14),
+    NOT(0x15),
+    SHL(0x16),
+    SHR(0x17),
 
-    // Logic
-    AND(0x06),
-    OR(0x07),
-    XOR(0x08),
-    NOT(0x09),
-
-    // Branching
-    JMP(0x0A),
-    JZ(0x0B),
-    JNZ(0x0C),
+    // Control Flow & Branching
+    JMP(0x20),
+    JZ(0x21),
+    JNZ(0x22),
 
     // Stack
-    PUSH(0x0D),
-    POP(0x0E),
-
-    // System
-    NOP(0x00),
+    PUSH(0x30),
+    POP(0x31),
     HALT(0x3F);
 
 

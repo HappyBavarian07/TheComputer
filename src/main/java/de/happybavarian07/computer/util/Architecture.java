@@ -14,7 +14,7 @@ public class Architecture {
     public static final int WORD_BITS = 32; // Architecture.WORD_BITS
 
     // System sizes
-    public static final int GPR_COUNT = 32; // General-purpose Registers
+    public static final int GPR_COUNT = 32; // General-purpose Registers // Architecture.GENERAL_REGISTER_COUNT
     public static final int MEMORY_SIZE_BYTES = 65536; // Architecture.MEMORY_SIZE_BYTES
-    public static final int GENERAL_REGISTER_COUNT = 16; // Architecture.GENERAL_REGISTER_COUNT
+    public static final int MEMORY_FREE_END = MEMORY_SIZE_BYTES - 0x1000; // Reserved Space for BIOS and MMIO   // Architecture.MEMORY_FREE_END
 }

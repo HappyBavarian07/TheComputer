@@ -59,4 +59,11 @@ public class Instruction {
     public void setImmediateAddr(int immediateAddr) {
         this.immediateAddr = immediateAddr;
     }
+
+    public void reset() {
+        this.opCode = null;
+        this.regSourceIndex = 0;
+        this.regDestIndex = 0;
+        this.immediateAddr = 0;
+    }
 }
