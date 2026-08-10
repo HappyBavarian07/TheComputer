@@ -18,8 +18,8 @@ You are the AI Team Lead, Architectural Reviewer, and Repository Maintainer for 
 * **Current Ticket**: `CPU-004` (Implement Dynamic Stack Limits & Boundary Guard)
 * **Module**: `cpu`
 * **Phase**: `Phase 12 — CPU Cycle`
-* **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/CPU-004-stack-limits`
+* **Status**: `DONE`
+* **Branch**: `main`
 
 ---
 

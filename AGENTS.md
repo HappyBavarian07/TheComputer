@@ -8,8 +8,8 @@
 
 ## 📌 Active Task State
 * **Current Ticket in Alignment**: `CPU-004` (Implement Dynamic Stack Limits & Boundary Guard)
-* **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/CPU-004-stack-limits`
+* **Status**: `DONE`
+* **Branch**: `main`
 
 ---
 

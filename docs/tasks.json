@@ -126,7 +126,7 @@
       "id": "CPU-004",
       "title": "Implement Dynamic Stack Limits & Boundary Guard",
       "module": "cpu",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "priority": "HIGH",
       "phase": "Phase 12 — CPU Cycle",
       "dependencies": ["CPU-003"],
