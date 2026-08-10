@@ -1,6 +1,7 @@
 package de.happybavarian07.computer.isa;
 
 import de.happybavarian07.computer.core.word.Word;
+import de.happybavarian07.computer.exceptions.isa.IllegalInstructionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

@@ -3,6 +3,8 @@ package de.happybavarian07.computer.bus;
 import de.happybavarian07.computer.core.address.Address;
 import de.happybavarian07.computer.core.bit.Bit;
 import de.happybavarian07.computer.core.word.Word;
+import de.happybavarian07.computer.exceptions.bus.BusBusyException;
+import de.happybavarian07.computer.exceptions.bus.BusFaultException;
 
 /*
  * @Author HappyBavarian07

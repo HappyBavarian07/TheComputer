@@ -1,4 +1,4 @@
-package de.happybavarian07.computer.isa;
+package de.happybavarian07.computer.exceptions.isa;
 
 /*
  * @Author HappyBavarian07
