@@ -121,6 +121,42 @@
       "description": "Implement CPU main loop driving Fetch (from PC), Decode, Execute via ALU/Memory, and Writeback.",
       "acceptance_criteria": "1. Single-step execution executes one instruction and advances PC.\n2. Execute loop runs until HALT instruction or interrupt.\n3. Test execution of hand-encoded machine code programs.",
       "notes": "Core CPU engine."
+    },
+    {
+      "id": "CPU-004",
+      "title": "Implement Dynamic Stack Limits & Boundary Guard",
+      "module": "cpu",
+      "status": "TODO",
+      "priority": "HIGH",
+      "phase": "Phase 12 — CPU Cycle",
+      "dependencies": ["CPU-003"],
+      "description": "Implement dynamic STACK_BASE and STACK_LIMIT derived from Architecture.MEMORY_SIZE_BYTES and enforce StackOverflowException on stack boundary breaches during PUSH.",
+      "acceptance_criteria": "1. Dynamic calculation of STACK_BASE and STACK_LIMIT using MEMORY_SIZE_BYTES.\n2. PUSH operation checks SP against STACK_LIMIT and throws StackOverflowException if breached.\n3. Unit tests verifying stack boundary traps.",
+      "notes": "Stack memory protection."
+    },
+    {
+      "id": "MEM-002",
+      "title": "Implement MMU Guard Pages & Segmentation Fault Traps",
+      "module": "memory",
+      "status": "TODO",
+      "priority": "MEDIUM",
+      "phase": "Phase 30.5 — MMU & Memory Protection",
+      "dependencies": ["CPU-004"],
+      "description": "Implement Memory Management Unit (MMU) with Guard Pages, page permission tables (R/W/X), and SegmentationFaultException.",
+      "acceptance_criteria": "1. Page table mapping with Read/Write/Execute permissions.\n2. Guard Page detection triggering SegmentationFaultException.\n3. Complete unit test coverage for memory protection traps.",
+      "notes": "Advanced hardware memory protection."
+    },
+    {
+      "id": "SYS-001",
+      "title": "Implement Motherboard & System Interconnect Host",
+      "module": "system",
+      "status": "TODO",
+      "priority": "HIGH",
+      "phase": "Phase 13 — System Host",
+      "dependencies": ["CPU-003", "BUS-001"],
+      "description": "Build Motherboard system host assembling CPU, SystemBus, RamBusDevice, and RomBusDevice, decoupling memory initialization from Cpu core.",
+      "acceptance_criteria": "1. Motherboard instantiates SystemBus, CPU, and registers RAM/ROM devices on bus.\n2. Provides system lifecycle methods (powerOn, reset, stepSystem, runSystem).\n3. Unit tests verifying complete motherboard boot and program execution.",
+      "notes": "Hardware system host component."
     }
   ]
 }

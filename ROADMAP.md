@@ -619,6 +619,15 @@ Stack
 
 ---
 
+# 31.5. Phase 30.5 — MMU & Memory Protection
+
+* Memory Management Unit (MMU)
+* Guard Pages & Segmentation Fault (`SegFaultException`) traps
+* Dynamic Stack Limits derived from `MEMORY_SIZE_BYTES`
+* Page tables with Read/Write/Execute (R/W/X) permissions
+
+---
+
 # 32. Phase 31 — OS Layer (Optional)
 
 * scheduler
