@@ -16,7 +16,7 @@ public class SpecialRegisters {
 
     public SpecialRegisters() {
         pc = new Address(0);
-        sp = new Address(0);
+        sp = new Address(0xEFFF);
         ir = new Word(0);
         flagZ = new Bit(false);
         flagN = new Bit(false);
@@ -32,6 +32,10 @@ public class SpecialRegisters {
         pc.set(source.getAsArray());
     }
 
+    public Address getPC() {
+        return pc;
+    }
+
     public void readSP(Address destination) {
         destination.set(sp.getAsArray());
     }
@@ -40,8 +44,16 @@ public class SpecialRegisters {
         sp.set(source.getAsArray());
     }
 
+    public Address getSP() {
+        return sp;
+    }
+
     public void readIR(Word destination) {
         destination.set(ir.getAsArray());
+    }
+
+    public Word getIR() {
+        return ir;
     }
 
     public void writeIR(Word source) {
@@ -91,9 +103,25 @@ public class SpecialRegisters {
         destination.set(flagV.getAsBool());
     }
 
+    public Bit getFlagZBit() {
+        return flagZ;
+    }
+
+    public Bit getFlagNBit() {
+        return flagN;
+    }
+
+    public Bit getFlagCBit() {
+        return flagC;
+    }
+
+    public Bit getFlagVBit() {
+        return flagV;
+    }
+
     public void reset() {
         pc.set(0);
-        sp.set(0);
+        sp.set(0xEFFF);
         ir.set(0);
         writeFlags(false, false, false, false);
     }

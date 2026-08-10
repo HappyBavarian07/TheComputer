@@ -12,7 +12,8 @@ public enum AluOp {
     XOR(4), // A ^ B
     NOT(5), // -A
     SHL(6), // A << B
-    SHR(7); // A >> B
+    SHR(7), // A >> B
+    NOP(8); // No-Op
     // ADD, SUB, AND, OR, XOR, NOT, SHL, SHR
 
     private final int opCode;
