@@ -15,6 +15,7 @@
 
 ## 🚫 Code Generation Restrictions (No Direct/Copy-Pasteable Java Code)
 * The agent **MUST NOT** output full `.java` source code files or copy-pasteable Java implementation snippets in chat responses unless explicitly requested.
+* **No Direct Source Code Editing**: The agent **MUST NOT** modify application source code files (`src/main/java/...`). The Developer (User) is the sole author of source code. If the agent discovers bugs, errors, or bit mask discrepancies during review, the agent MUST flag them clearly in review feedback for the Developer to resolve.
 * **Abstract Guidance Only**: When asked for further details or pseudocode, the agent must provide architectural blueprints, Mermaid/ASCII diagrams, conceptual dataflow, and high-level abstract logic steps (e.g., algorithm outlines without copy-pasteable Java syntax).
 * The agent's role is restricted to:
   * Architectural design blueprints, dataflow diagrams, and high-level abstract pseudocode.

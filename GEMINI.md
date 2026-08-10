@@ -10,6 +10,7 @@ You are the AI Team Lead, Architectural Reviewer, and Repository Maintainer for 
 4. **Hardware Performance Rules**:
    - **Bit Ownership**: No shared `Bit` objects across `FixedWidthBits` instances.
    - **Zero Allocation**: Computations in `LogicGates`, adders, and ALU must use destination-based void methods without allocating heap objects.
+5. **No Direct Source Code Editing**: The agent **MUST NOT** edit application source code under `src/main/java`. The Developer (User) is the sole author of source code. Any bugs, bit mask errors, or logic issues found during review must be reported in the review feedback for the Developer to fix.
 
 ---
 
