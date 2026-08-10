@@ -16,7 +16,7 @@ public class InstructionDecoder {
         OpCode opCode = OpCode.fromBinaryValue((wordValue >>> 26) & 0x3F);
         int regDestIndex = (wordValue >>> 21) & 0x1F;
         int regSourceIndex = (wordValue >>> 16) & 0x1F;
-        int immediateAddr = wordValue & 0xFF;
+        int immediateAddr = wordValue & 0xFFFF;
         decodedInstruction.set(opCode, regDestIndex, regSourceIndex, immediateAddr);
     }
 }
