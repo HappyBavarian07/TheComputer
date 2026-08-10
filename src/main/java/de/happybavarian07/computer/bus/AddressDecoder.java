@@ -1,11 +1,11 @@
 package de.happybavarian07.computer.bus;
 
 import de.happybavarian07.computer.core.address.Address;
+import de.happybavarian07.computer.exceptions.bus.BusConfigurationException;
 import de.happybavarian07.computer.util.Architecture;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 /*
  * @Author HappyBavarian07

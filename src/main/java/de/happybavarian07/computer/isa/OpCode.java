@@ -1,5 +1,7 @@
 package de.happybavarian07.computer.isa;
 
+import de.happybavarian07.computer.exceptions.isa.IllegalInstructionException;
+
 /*
  * @Author HappyBavarian07
  * @Date August 10, 2026 | 15:48

@@ -2,6 +2,7 @@ package de.happybavarian07.computer.bus;
 
 import de.happybavarian07.computer.core.address.Address;
 import de.happybavarian07.computer.core.word.Word;
+import de.happybavarian07.computer.exceptions.bus.BusFaultException;
 import de.happybavarian07.computer.memory.ram.RamBusDevice;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

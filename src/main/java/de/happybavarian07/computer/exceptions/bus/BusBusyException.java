@@ -1,4 +1,4 @@
-package de.happybavarian07.computer.bus;
+package de.happybavarian07.computer.exceptions.bus;
 
 /*
  * @Author HappyBavarian07
