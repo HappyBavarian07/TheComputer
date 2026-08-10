@@ -100,6 +100,35 @@ class CpuTest {
     }
 
     @Test
+    void testPushAndPop() {
+        // Load 0xABCD into R1, PUSH R1, POP into R2
+        addressBuffer.set(0x0100);
+        wordBuffer.set(0xABCD);
+        cpu.getSystemBus().write(addressBuffer, wordBuffer);
+
+        writeInstruction(0x0000, OpCode.LOAD, 1, 0, 0x0100);
+        writeInstruction(0x0004, OpCode.PUSH, 0, 1, 0);
+        writeInstruction(0x0008, OpCode.POP, 2, 0, 0);
+        writeInstruction(0x000C, OpCode.HALT, 0, 0, 0);
+
+        cpu.run();
+
+        assertTrue(cpu.isHalted());
+        cpu.getRegisterFile().read(2, wordBuffer);
+        assertEquals(0xABCD, wordBuffer.getAsInt());
+    }
+
+    @Test
+    void testStackOverflowTrap() {
+        // Set SP to STACK_LIMIT_ADDRESS + 2 (so SP - 4 < STACK_LIMIT_ADDRESS)
+        cpu.getSpecialRegisters().getSP().set(de.happybavarian07.computer.util.Architecture.STACK_LIMIT_ADDRESS + 2);
+        writeInstruction(0x0000, OpCode.PUSH, 0, 1, 0);
+
+        assertThrows(de.happybavarian07.computer.exceptions.stack.StackOverflowException.class, () -> cpu.step());
+        assertTrue(cpu.isHalted());
+    }
+
+    @Test
     void testReset() {
         writeInstruction(0x0000, OpCode.HALT, 0, 0, 0);
         cpu.step();
