@@ -7,9 +7,9 @@
 ---
 
 ## 📌 Active Task State
-* **Current Ticket in Alignment**: `BUS-001` (32-bit Data & 16-bit Address Bus System)
-* **Status**: `DONE`
-* **Branch**: `main`
+* **Current Ticket in Alignment**: `ISA-001` (Define Instruction Set Architecture & Decoder)
+* **Status**: `IN_PROGRESS`
+* **Branch**: `ticket/ISA-001-instruction-decoder`
 
 ---
 

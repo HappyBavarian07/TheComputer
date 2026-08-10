@@ -102,7 +102,7 @@
       "id": "ISA-001",
       "title": "Define Instruction Set Architecture & Decoder",
       "module": "isa",
-      "status": "TODO",
+      "status": "IN_PROGRESS",
       "priority": "HIGH",
       "phase": "Phase 10 — ISA Design",
       "dependencies": ["CPU-001", "CPU-002", "MEM-001"],
