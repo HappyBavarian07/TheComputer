@@ -7,6 +7,7 @@ import de.happybavarian07.computer.cpu.alu.Alu;
 import de.happybavarian07.computer.cpu.alu.AluOp;
 import de.happybavarian07.computer.cpu.registers.RegisterFile;
 import de.happybavarian07.computer.cpu.registers.SpecialRegisters;
+import de.happybavarian07.computer.exceptions.stack.StackOverflowException;
 import de.happybavarian07.computer.isa.Instruction;
 import de.happybavarian07.computer.isa.InstructionDecoder;
 import de.happybavarian07.computer.isa.OpCode;
@@ -126,11 +127,19 @@ public class Cpu {
             }
             case PUSH -> {
                 workingAddress.set(specialRegisters.getSP());
+                if(workingAddress.getAsInt() - 4 < Architecture.STACK_LIMIT_ADDRESS) {
+                    isHalted = true;
+                    throw new StackOverflowException("Tried to push data past max stack size.");
+                }
                 registerFile.read(currentInstruction.regSourceIndex(), workingResult);
                 systemBus.write(workingAddress, workingResult);
                 specialRegisters.getSP().add(-4);
             }
             case POP -> {
+                if(specialRegisters.getSP().getAsInt() + 4 < Architecture.STACK_BASE_ADDRESS) {
+                    isHalted = true;
+                    throw new StackOverflowException("Tried to push data past max stack size.");
+                }
                 specialRegisters.getSP().add(4);
                 workingAddress.set(specialRegisters.getSP());
                 systemBus.read(workingAddress, workingResult);
