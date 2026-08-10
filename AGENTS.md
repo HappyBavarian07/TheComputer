@@ -7,9 +7,9 @@
 ---
 
 ## 📌 Active Task State
-* **Current Ticket in Alignment**: `CPU-003` (Implement CPU Fetch-Decode-Execute Cycle)
-* **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/CPU-003-fetch-execute-cycle`
+* **Current Ticket in Alignment**: `CPU-004` (Implement Dynamic Stack Limits & Boundary Guard)
+* **Status**: `TODO` / Awaiting Alignment
+* **Branch**: Pending creation (`ticket/CPU-004-stack-limits`)
 
 ---
 
