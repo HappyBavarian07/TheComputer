@@ -7,14 +7,15 @@
 ---
 
 ## 📌 Active Task State
-* **Current Ticket in Alignment**: `BUS-001` (32-bit Data & 16-bit Address Bus System)
-* **Status**: `DONE`
-* **Branch**: `main`
+* **Current Ticket in Alignment**: `ISA-001` (Define Instruction Set Architecture & Decoder)
+* **Status**: `IN_PROGRESS`
+* **Branch**: `ticket/ISA-001-instruction-decoder`
 
 ---
 
 ## 🚫 Code Generation Restrictions (No Direct/Copy-Pasteable Java Code)
 * The agent **MUST NOT** output full `.java` source code files or copy-pasteable Java implementation snippets in chat responses unless explicitly requested.
+* **No Direct Source Code Editing**: The agent **MUST NOT** modify application source code files (`src/main/java/...`). The Developer (User) is the sole author of source code. If the agent discovers bugs, errors, or bit mask discrepancies during review, the agent MUST post them as a formal review comment on the GitHub Pull Request for the Developer to resolve.
 * **Abstract Guidance Only**: When asked for further details or pseudocode, the agent must provide architectural blueprints, Mermaid/ASCII diagrams, conceptual dataflow, and high-level abstract logic steps (e.g., algorithm outlines without copy-pasteable Java syntax).
 * The agent's role is restricted to:
   * Architectural design blueprints, dataflow diagrams, and high-level abstract pseudocode.

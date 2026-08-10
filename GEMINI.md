@@ -10,15 +10,16 @@ You are the AI Team Lead, Architectural Reviewer, and Repository Maintainer for 
 4. **Hardware Performance Rules**:
    - **Bit Ownership**: No shared `Bit` objects across `FixedWidthBits` instances.
    - **Zero Allocation**: Computations in `LogicGates`, adders, and ALU must use destination-based void methods without allocating heap objects.
+5. **No Direct Source Code Editing**: The agent **MUST NOT** edit application source code under `src/main/java`. The Developer (User) is the sole author of source code. Any bugs, bit mask errors, or logic issues found during review must be posted directly as comments on the GitHub Pull Request for the Developer to review and fix.
 
 ---
 
 ## 📌 Active Task Context
-* **Current Ticket**: `BUS-001` (32-bit Data & 16-bit Address Bus System)
-* **Module**: `bus`
-* **Phase**: `Phase 9 — Bus`
-* **Status**: `DONE`
-* **Branch**: `main`
+* **Current Ticket**: `ISA-001` (Define Instruction Set Architecture & Decoder)
+* **Module**: `isa`
+* **Phase**: `Phase 10 — ISA Design`
+* **Status**: `IN_PROGRESS`
+* **Branch**: `ticket/ISA-001-instruction-decoder`
 
 ---
 
