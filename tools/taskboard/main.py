@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import re
+import datetime
 import subprocess
 from PyQt6.QtCore import Qt, QMimeData, QUrl, QFileSystemWatcher
 from PyQt6.QtGui import QDrag, QAction, QColor, QFont
@@ -661,6 +662,7 @@ class NetworkWidget(QWidget):
     def __init__(self, kanban_board):
         super().__init__()
         self.kanban = kanban_board
+        self.critical_set = set()
         self.setup_ui()
 
     def setup_ui(self):
@@ -698,7 +700,11 @@ class NetworkWidget(QWidget):
             lines.append(f'  subgraph cluster_{safe} {{')
             lines.append(f'    label = "{p}";')
             for i in ids:
-                lines.append(f'    "{i}";')
+                # color critical nodes differently
+                if i in self.critical_set:
+                    lines.append(f'    "{i}" [style=filled, fillcolor="\"#b62324\"", fontcolor="#ffffff"];')
+                else:
+                    lines.append(f'    "{i}";')
             lines.append('  }')
         for a, b in edges:
             lines.append(f'  "{a}" -> "{b}";')
@@ -706,6 +712,12 @@ class NetworkWidget(QWidget):
         dot = "\n".join(lines)
         self.last_dot = dot
         self.viewer.setPlainText(dot)
+
+    def set_critical(self, ids):
+        try:
+            self.critical_set = set(ids)
+        except Exception:
+            self.critical_set = set()
 
     def export_dot(self):
         if not hasattr(self, 'last_dot'):
@@ -720,6 +732,156 @@ class NetworkWidget(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "Export Error", str(e))
 
+
+class DependencyRoadmapWidget(QWidget):
+    def __init__(self, kanban_board):
+        super().__init__()
+        self.kanban = kanban_board
+        self.setup_ui()
+
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+        top = QHBoxLayout()
+        top.addWidget(QLabel("Project Start (YYYY-MM-DD):"))
+        self.start_edit = QLineEdit(datetime.date.today().isoformat())
+        top.addWidget(self.start_edit)
+        compute_btn = QPushButton("Compute Schedule")
+        compute_btn.clicked.connect(self.compute_schedule)
+        top.addWidget(compute_btn)
+        export_btn = QPushButton("Export Schedule")
+        export_btn.setObjectName("secondaryBtn")
+        export_btn.clicked.connect(self.export_schedule)
+        top.addWidget(export_btn)
+        top.addStretch()
+        layout.addLayout(top)
+
+        self.table = QTableWidget()
+        self.table.setColumnCount(7)
+        self.table.setHorizontalHeaderLabels(["ID","Title","Est(days)","Start","End","Slack","Critical"])
+        self.table.horizontalHeader().setStretchLastSection(True)
+        layout.addWidget(self.table)
+
+        self.setLayout(layout)
+
+    def compute_schedule(self):
+        tasks = self.kanban.tasks
+        # build maps
+        tasks_by_id = {t.get('id'): t for t in tasks}
+        for t in tasks:
+            if 'dependencies' not in t or not isinstance(t.get('dependencies'), list):
+                t['dependencies'] = []
+        # detect cycles and topo sort using Kahn
+        indeg = {tid:0 for tid in tasks_by_id}
+        succ = {tid:[] for tid in tasks_by_id}
+        for tid,t in tasks_by_id.items():
+            for d in t.get('dependencies', []):
+                if d in tasks_by_id:
+                    indeg[tid] += 1
+                    succ[d].append(tid)
+        queue = [tid for tid,c in indeg.items() if c==0]
+        topo = []
+        while queue:
+            n = queue.pop(0)
+            topo.append(n)
+            for s in succ.get(n, []):
+                indeg[s] -= 1
+                if indeg[s]==0:
+                    queue.append(s)
+        if len(topo) != len(tasks_by_id):
+            QMessageBox.critical(self, "Cycle Detected", "Task dependencies contain a cycle — cannot compute schedule.")
+            return
+        # durations
+        dur = {tid: max(1, int(tasks_by_id[tid].get('est_days', 1))) for tid in tasks_by_id}
+        earliest_start = {tid:0 for tid in tasks_by_id}
+        earliest_finish = {}
+        for n in topo:
+            start = 0
+            preds = tasks_by_id[n].get('dependencies', [])
+            for p in preds:
+                if p in earliest_finish:
+                    start = max(start, earliest_finish[p])
+            earliest_start[n] = start
+            earliest_finish[n] = start + dur[n]
+        project_end = max(earliest_finish.values()) if earliest_finish else 0
+        # latest
+        latest_finish = {tid: project_end for tid in tasks_by_id}
+        latest_start = {}
+        for n in reversed(topo):
+            if succ.get(n):
+                lf = min((latest_start[s] for s in succ[n]))
+            else:
+                lf = project_end
+            latest_finish[n] = lf
+            latest_start[n] = lf - dur[n]
+        # slack and critical
+        schedule = []
+        critical = set()
+        for tid in topo:
+            es = earliest_start[tid]
+            ef = earliest_finish[tid]
+            ls = latest_start[tid]
+            lf = latest_finish[tid]
+            slack = ls - es
+            is_crit = (slack == 0)
+            if is_crit:
+                critical.add(tid)
+            schedule.append({
+                'id': tid,
+                'title': tasks_by_id[tid].get('title',''),
+                'est': dur[tid],
+                'start_day': es,
+                'end_day': ef-1,
+                'slack': slack,
+                'critical': is_crit
+            })
+        # fill table
+        self.table.setRowCount(len(schedule))
+        try:
+            base = datetime.date.fromisoformat(self.start_edit.text().strip())
+        except Exception:
+            base = datetime.date.today()
+        for i,row in enumerate(schedule):
+            self.table.setItem(i,0, QTableWidgetItem(row['id']))
+            self.table.setItem(i,1, QTableWidgetItem(row['title']))
+            self.table.setItem(i,2, QTableWidgetItem(str(row['est'])))
+            sdate = (base + datetime.timedelta(days=row['start_day'])).isoformat()
+            edate = (base + datetime.timedelta(days=row['end_day'])).isoformat()
+            self.table.setItem(i,3, QTableWidgetItem(sdate))
+            self.table.setItem(i,4, QTableWidgetItem(edate))
+            self.table.setItem(i,5, QTableWidgetItem(str(row['slack'])))
+            self.table.setItem(i,6, QTableWidgetItem("YES" if row['critical'] else ""))
+            if row['critical']:
+                for c in range(7):
+                    item = self.table.item(i,c)
+                    if item:
+                        item.setBackground(QColor('#b62324'))
+                        item.setForeground(QColor('#ffffff'))
+        # notify network widget
+        parent = getattr(self.parent(), 'parent', None)
+        # set critical in network widget if present on the main window
+        mw = None
+        w = self
+        while w and not isinstance(w, QMainWindow):
+            w = w.parent()
+        if isinstance(w, QMainWindow):
+            mw = w
+        if mw and hasattr(mw, 'network_widget'):
+            mw.network_widget.set_critical(critical)
+            mw.network_widget.generate_dot()
+        self.last_schedule = schedule
+
+    def export_schedule(self):
+        if not hasattr(self, 'last_schedule'):
+            QMessageBox.information(self, "Nothing to export", "Compute the schedule first.")
+            return
+        fname = QFileDialog.getSaveFileName(self, "Save Schedule JSON", os.path.join(os.getcwd(), "schedule.json"), "JSON Files (*.json);;All Files (*)")[0]
+        if fname:
+            try:
+                with open(fname, 'w', encoding='utf-8') as f:
+                    json.dump(self.last_schedule, f, indent=2)
+                QMessageBox.information(self, "Saved", f"Schedule exported to {fname}")
+            except Exception as e:
+                QMessageBox.critical(self, "Export Error", str(e))
 
 class DiagramEditorWidget(QWidget):
     def __init__(self, root_dir, main_window):
