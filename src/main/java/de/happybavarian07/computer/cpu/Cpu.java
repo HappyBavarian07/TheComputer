@@ -126,24 +126,28 @@ public class Cpu {
                 }
             }
             case PUSH -> {
-                workingAddress.set(specialRegisters.getSP());
-                if(workingAddress.getAsInt() - 4 < Architecture.STACK_LIMIT_ADDRESS) {
+                int spVal = specialRegisters.getSP().getAsInt();
+                int newSp = spVal - 4;
+                if (newSp < Architecture.STACK_LIMIT_ADDRESS) {
                     isHalted = true;
                     throw new StackOverflowException("Tried to push data past max stack size.");
                 }
                 registerFile.read(currentInstruction.regSourceIndex(), workingResult);
+                specialRegisters.getSP().set(newSp);
+                workingAddress.set(specialRegisters.getSP());
                 systemBus.write(workingAddress, workingResult);
-                specialRegisters.getSP().add(-4);
             }
             case POP -> {
-                if(specialRegisters.getSP().getAsInt() + 4 < Architecture.STACK_BASE_ADDRESS) {
+                int spVal = specialRegisters.getSP().getAsInt();
+                // If SP currently points beyond the highest valid word base, stack is empty
+                if (spVal > Architecture.MEMORY_FREE_END - 4) {
                     isHalted = true;
-                    throw new StackOverflowException("Tried to push data past max stack size.");
+                    throw new StackOverflowException("Tried to pop from empty stack.");
                 }
-                specialRegisters.getSP().add(4);
                 workingAddress.set(specialRegisters.getSP());
                 systemBus.read(workingAddress, workingResult);
                 registerFile.write(currentInstruction.regDestIndex(), workingResult);
+                specialRegisters.getSP().add(4);
             }
             case HALT -> {
                 isHalted = true;

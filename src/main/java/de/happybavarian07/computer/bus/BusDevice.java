@@ -15,4 +15,7 @@ public interface BusDevice {
     default String getName() {
         return getClass().getSimpleName();
     }
+
+    default void reset() {
+    }
 }

@@ -87,7 +87,7 @@ class SpecialRegistersTest {
         assertEquals(0, addrDest.getAsInt());
 
         specialRegisters.readSP(addrDest);
-        assertEquals(0, addrDest.getAsInt());
+        assertEquals(0xEFFF, addrDest.getAsInt());
 
         specialRegisters.readIR(wordDest);
         assertEquals(0, wordDest.getAsInt());

@@ -77,6 +77,18 @@ class SystemBusTest {
         }
     }
 
+    @Test
+    void testSystemBusReset() {
+        address.set(0x1000);
+        wordSource.set(0x42);
+        systemBus.write(address, wordSource);
+
+        systemBus.reset();
+
+        systemBus.read(address, wordDestination);
+        assertEquals(0, wordDestination.getAsInt());
+    }
+
     private static class MockRomDevice implements BusDevice {
         @Override
         public void read(Address address, Word destination) {

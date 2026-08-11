@@ -13,12 +13,14 @@ import de.happybavarian07.computer.exceptions.bus.BusFaultException;
 public class SystemBus {
     private AddressDecoder addressDecoder;
     private Address addressBus;
+    private Address relativeAddressBus;
     private Word dataBus;
     private Bit readEnable, writeEnable;
 
     public SystemBus() {
         addressDecoder = new AddressDecoder();
         addressBus = new Address();
+        relativeAddressBus = new Address();
         dataBus = new Word();
         readEnable = new Bit(false);
         writeEnable = new Bit(false);
@@ -40,11 +42,12 @@ public class SystemBus {
             readEnable.set(true);
             writeEnable.set(false);
             addressBus.set(address);
-            BusDevice device = addressDecoder.findDevice(addressBus);
-            if (device == null) {
+            AddressDecoder.DeviceMapping mapping = addressDecoder.findDeviceMapping(addressBus);
+            if (mapping == null) {
                 throw new BusFaultException("No device mapped at address " + addressBus.getAsHexaDecString());
             }
-            device.read(addressBus, dataBus);
+            relativeAddressBus.set(addressBus.getAsInt() - mapping.startAddress());
+            mapping.device().read(relativeAddressBus, dataBus);
             destination.set(dataBus);
         } finally {
             readEnable.set(false);
@@ -60,13 +63,25 @@ public class SystemBus {
             writeEnable.set(true);
             addressBus.set(address);
             dataBus.set(source);
-            BusDevice device = addressDecoder.findDevice(addressBus);
-            if (device == null) {
+            AddressDecoder.DeviceMapping mapping = addressDecoder.findDeviceMapping(addressBus);
+            if (mapping == null) {
                 throw new BusFaultException("No device mapped at address " + addressBus.getAsHexaDecString());
             }
-            device.write(addressBus, dataBus);
+            relativeAddressBus.set(addressBus.getAsInt() - mapping.startAddress());
+            mapping.device().write(relativeAddressBus, dataBus);
         } finally {
             writeEnable.set(false);
+        }
+    }
+
+    public void reset() {
+        addressBus.set(0);
+        relativeAddressBus.set(0);
+        dataBus.set(0);
+        readEnable.set(false);
+        writeEnable.set(false);
+        for (AddressDecoder.DeviceMapping mapping : addressDecoder.getDeviceMappings()) {
+            mapping.device().reset();
         }
     }
 }

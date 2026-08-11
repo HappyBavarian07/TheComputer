@@ -19,13 +19,19 @@ public class AddressDecoder {
     }
 
     public void registerDevice(Address startAddress, Address endAddress, BusDevice device) {
+        if (device == null) {
+            throw new BusConfigurationException("Cannot register null device for address range: " +
+                    startAddress.getAsHexaDecString() + " - " + endAddress.getAsHexaDecString());
+        }
+
         if (startAddress.getAsInt() > endAddress.getAsInt() || startAddress.getAsInt() < 0 || endAddress.getAsInt() > Architecture.MEMORY_SIZE_BYTES - 1)
             throw new BusConfigurationException("Device '" + device.getName() + "' tried to request invalid Address range from " +
                     startAddress.getAsHexaDecString() + " (" + startAddress.getAsInt() + ") to " + endAddress.getAsHexaDecString() + " (" + endAddress.getAsInt() + ").");
 
         BusDevice overlappingDevice = findDeviceFromAddress(startAddress, endAddress);
         if (overlappingDevice != null)
-            throw new BusConfigurationException("Address collision between '" + device.getName() + "' (NEW) and '" + overlappingDevice.getName() + "' (EXISTING)");
+            throw new BusConfigurationException("Address collision between '" + device.getName() + "' (NEW) and '" + overlappingDevice.getName() + "' (EXISTING) for ranges " +
+                    startAddress.getAsHexaDecString() + " - " + endAddress.getAsHexaDecString());
 
         deviceMappings.add(new DeviceMapping(startAddress.getAsInt(), endAddress.getAsInt(), device));
     }
@@ -39,15 +45,29 @@ public class AddressDecoder {
         return null;
     }
 
-    public BusDevice findDevice(Address address) {
+    public DeviceMapping findDeviceMapping(Address address) {
         if (address.getAsInt() < 0 || address.getAsInt() > Architecture.MEMORY_SIZE_BYTES - 1)
             throw new BusConfigurationException("Tried to find Device with an invalid Address " +
                     address.getAsHexaDecString() + " (" + address.getAsInt() + ").");
 
-        return findDeviceFromAddress(address, address);
+        for (int i = 0; i < deviceMappings.size(); i++) {
+            DeviceMapping mapping = deviceMappings.get(i);
+            if (address.getAsInt() >= mapping.startAddress() && address.getAsInt() <= mapping.endAddress()) {
+                return mapping;
+            }
+        }
+        return null;
     }
 
+    public BusDevice findDevice(Address address) {
+        DeviceMapping mapping = findDeviceMapping(address);
+        return mapping != null ? mapping.device() : null;
+    }
 
-    record DeviceMapping(int startAddress, int endAddress, BusDevice device) {
+    public List<DeviceMapping> getDeviceMappings() {
+        return java.util.Collections.unmodifiableList(deviceMappings);
+    }
+
+    public record DeviceMapping(int startAddress, int endAddress, BusDevice device) {
     }
 }
