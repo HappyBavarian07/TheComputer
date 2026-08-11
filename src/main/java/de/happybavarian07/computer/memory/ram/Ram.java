@@ -12,23 +12,36 @@ import de.happybavarian07.computer.util.Architecture;
  */
 public class Ram {
     private final Byte[] memory;
+    private final int capacityBytes;
 
     public Ram() {
-        this.memory = new Byte[Architecture.MEMORY_SIZE_BYTES];
-        for (int i = 0; i < Architecture.MEMORY_SIZE_BYTES; i++) {
+        this(Architecture.MEMORY_SIZE_BYTES);
+    }
+
+    public Ram(int capacityBytes) {
+        if (capacityBytes <= 0 || capacityBytes > Architecture.MEMORY_SIZE_BYTES) {
+            throw new IllegalArgumentException("Invalid RAM capacity: " + capacityBytes);
+        }
+        this.capacityBytes = capacityBytes;
+        this.memory = new Byte[capacityBytes];
+        for (int i = 0; i < capacityBytes; i++) {
             this.memory[i] = new Byte(0);
         }
     }
 
     public void reset() {
-        for (int i = 0; i < Architecture.MEMORY_SIZE_BYTES; i++) {
+        for (int i = 0; i < capacityBytes; i++) {
             this.memory[i].set(0);
         }
     }
 
+    public int getCapacityBytes() {
+        return capacityBytes;
+    }
+
     public void readByte(Address address, Byte destination) {
         int addr = address.getAsInt();
-        if (addr < 0 || addr >= Architecture.MEMORY_SIZE_BYTES) {
+        if (addr < 0 || addr >= capacityBytes) {
             throw new IndexOutOfBoundsException("Tried to access RAM outside address space: " + addr);
         }
 
@@ -37,7 +50,7 @@ public class Ram {
 
     public void writeByte(Address address, Byte source) {
         int addr = address.getAsInt();
-        if (addr < 0 || addr >= Architecture.MEMORY_SIZE_BYTES) {
+        if (addr < 0 || addr >= capacityBytes) {
             throw new IndexOutOfBoundsException("Tried to access RAM outside address space: " + addr);
         }
 
@@ -46,7 +59,7 @@ public class Ram {
 
     public void readWord(Address address, Word destination) {
         int baseAddr = address.getAsInt();
-        if (baseAddr < 0 || baseAddr >= Architecture.MEMORY_SIZE_BYTES - 3) {
+        if (baseAddr < 0 || baseAddr >= capacityBytes - 3) {
             throw new IndexOutOfBoundsException("Tried to access RAM outside address space: " + baseAddr);
         }
 
@@ -61,7 +74,7 @@ public class Ram {
 
     public void writeWord(Address address, Word source) {
         int baseAddr = address.getAsInt();
-        if (baseAddr < 0 || baseAddr >= Architecture.MEMORY_SIZE_BYTES - 3) {
+        if (baseAddr < 0 || baseAddr >= capacityBytes - 3) {
             throw new IndexOutOfBoundsException("Tried to access RAM outside address space: " + baseAddr);
         }
         for (int k = 0; k < 4; k++) {

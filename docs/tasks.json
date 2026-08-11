@@ -150,13 +150,13 @@
       "id": "SYS-001",
       "title": "Implement Motherboard & System Interconnect Host",
       "module": "system",
-      "status": "TODO",
+      "status": "IN_PROGRESS",
       "priority": "HIGH",
       "phase": "Phase 13 — System Host",
       "dependencies": ["CPU-003", "BUS-001"],
-      "description": "Build Motherboard system host assembling CPU, SystemBus, RamBusDevice, and RomBusDevice, decoupling memory initialization from Cpu core.",
-      "acceptance_criteria": "1. Motherboard instantiates SystemBus, CPU, and registers RAM/ROM devices on bus.\n2. Provides system lifecycle methods (powerOn, reset, stepSystem, runSystem).\n3. Unit tests verifying complete motherboard boot and program execution.",
-      "notes": "Hardware system host component."
+      "description": "Build Motherboard host assembling CPU, SystemBus, RamBusDevice, and RomBusDevice, and refactor BusDevice/AddressDecoder for relative address offset translation and reset lifecycle.",
+      "acceptance_criteria": "1. AddressDecoder & BusDevice translate system addresses to device-relative offsets (systemAddress - startAddress).\n2. BusDevice defines default reset() method, and SystemBus.reset() resets signal lines and all attached devices.\n3. Ram supports sized capacity constructor (Ram(capacityBytes)).\n4. Motherboard instantiates SystemBus, CPU, and handles system lifecycle (powerOn, reset, stepSystem, runSystem).\n5. Complete unit test coverage.",
+      "notes": "Hardware system host & bus interconnect refactor."
     }
   ]
 }
