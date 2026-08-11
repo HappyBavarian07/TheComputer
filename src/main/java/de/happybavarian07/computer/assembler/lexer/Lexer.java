@@ -1,4 +1,4 @@
-package de.happybavarian07.computer.assembler;
+package de.happybavarian07.computer.assembler.lexer;
 
 import java.util.List;
 

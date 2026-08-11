@@ -1,8 +1,8 @@
-package de.happybavarian07.computer.assembler.implementation.lexer;
+package de.happybavarian07.computer.assembler.lexer.impl;
 
-import de.happybavarian07.computer.assembler.Lexer;
-import de.happybavarian07.computer.assembler.Token;
-import de.happybavarian07.computer.assembler.TokenKind;
+import de.happybavarian07.computer.assembler.lexer.Lexer;
+import de.happybavarian07.computer.assembler.lexer.Token;
+import de.happybavarian07.computer.assembler.lexer.TokenKind;
 import de.happybavarian07.computer.exceptions.assembler.LexerException;
 
 import java.util.ArrayDeque;
@@ -95,9 +95,8 @@ public class IndexedLexer implements Lexer {
         int startIndex = index;
         char c = peekChar();
 
-        if (c == '\n') {
-            advance();
-            snippetStartIndex = index;
+        if (c == '\n' || c == '\r') {
+            consumeNewline();
             return new Token(TokenKind.NEWLINE, "\n", OptionalLong.empty(), Optional.empty(), startLine, startColumn, startIndex, index);
         }
 
@@ -158,15 +157,6 @@ public class IndexedLexer implements Lexer {
                 advance();
             } else if (c == '\t') {
                 advance();
-            } else if (c == '\r') {
-                advance();
-                if (peekChar() == '\n') advance();
-                column = 1;
-                snippetStartIndex = index;
-            } else if (c == '\n') {
-                advance();
-                column = 1;
-                snippetStartIndex = index;
             } else if (c == ';' || c == '#') {
                 consumeUntilNewline();
             } else if (c == '/' && peekNextChar() == '/') {
@@ -178,11 +168,24 @@ public class IndexedLexer implements Lexer {
     }
 
     private void consumeUntilNewline() {
-        while (!eof()) {
-            char c = peekChar();
+        while (!eof() && peekChar() != '\n' && peekChar() != '\r') {
             advance();
-            if (c == '\n') break;
         }
+    }
+
+    private void consumeNewline() {
+        if (eof()) return;
+        if (peekChar() == '\r') {
+            index++;
+            if (!eof() && peekChar() == '\n') {
+                index++;
+            }
+        } else if (peekChar() == '\n') {
+            index++;
+        } else {
+            return;
+        }
+        line++;
         column = 1;
         snippetStartIndex = index;
     }
@@ -259,7 +262,16 @@ public class IndexedLexer implements Lexer {
                 advance();
                 if (eof()) break;
                 char esc = peekChar();
-                sb.append(esc);
+                switch (esc) {
+                    case 'n' -> sb.append('\n');
+                    case 'r' -> sb.append('\r');
+                    case 't' -> sb.append('\t');
+                    case '\\' -> sb.append('\\');
+                    case '"' -> sb.append('\"');
+                    case '\'' -> sb.append('\'');
+                    case '0' -> sb.append('\0');
+                    default -> sb.append(esc);
+                }
                 advance();
                 continue;
             }

@@ -1,6 +1,9 @@
 package de.happybavarian07.computer.assembler;
 
-import de.happybavarian07.computer.assembler.implementation.lexer.IndexedLexer;
+import de.happybavarian07.computer.assembler.lexer.impl.IndexedLexer;
+import de.happybavarian07.computer.assembler.lexer.Lexer;
+import de.happybavarian07.computer.assembler.lexer.Token;
+import de.happybavarian07.computer.assembler.lexer.TokenKind;
 import de.happybavarian07.computer.exceptions.assembler.LexerException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,8 +58,8 @@ class LexerTest {
 
         List<Token> tokens = lexer.tokenizeAll();
 
-        assertTokenKinds(tokens, TokenKind.IDENT, TokenKind.REGISTER, TokenKind.COMMA, TokenKind.REGISTER, TokenKind.EOF);
-        assertTokenLexemes(tokens, "mov", "R15", ",", "PC", "");
+        assertTokenKinds(tokens, TokenKind.IDENT, TokenKind.REGISTER, TokenKind.COMMA, TokenKind.REGISTER, TokenKind.NEWLINE, TokenKind.NEWLINE, TokenKind.EOF);
+        assertTokenLexemes(tokens, "mov", "R15", ",", "PC", "\n", "\n", "");
     }
 
     @Test
