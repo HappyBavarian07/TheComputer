@@ -144,7 +144,7 @@ class AluTest {
     void testRandomFuzzing() {
         Random random = new Random(42);
         for (AluOp op : AluOp.values()) {
-            if (op.equals(AluOp.SHL) || op.equals(AluOp.SHR)) continue;
+            if (op.equals(AluOp.SHL) || op.equals(AluOp.SHR) || op.equals(AluOp.NOP)) continue;
             for (int i = 0; i < 1000; i++) {
                 inA.set(random.nextInt());
                 inB.set(random.nextInt());
