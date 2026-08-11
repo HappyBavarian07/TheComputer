@@ -32,3 +32,17 @@ When user triggers `"let's align on: ticket-xy"`:
 5. Risks & Allocation Hazards
 6. Acceptance Criteria
 7. Wait for user confirmation.
+
+## 📋 Default Blueprint Format
+* Use a structured architectural blueprint format for ticket planning by default:
+  * **Ticket / Module / Phase / Branch**
+  * **1. Goal**
+  * **2. Intended Scope**
+  * **3. Dependencies**
+  * **4. Conceptual Topology / Dataflow**
+  * **5. Logical Implementation Steps**
+  * **6. Hazards & Architectural Risks**
+  * **7. Acceptance Criteria & Review Expectations**
+  * **Alignment Status**
+* Keep the wording concise and decision-oriented.
+* When a ticket alignment is requested, provide the blueprint first and stop until the user confirms.
