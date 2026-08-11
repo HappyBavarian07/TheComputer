@@ -175,7 +175,7 @@
       "title": "Implement Motherboard & System Interconnect Host",
       "module": "server",
       "priority": "HIGH",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "description": "Build Motherboard host assembling CPU, SystemBus, RamBusDevice, and RomBusDevice, and refactor BusDevice/AddressDecoder for relative address offset translation and reset lifecycle.",
       "acceptance_criteria": "1. AddressDecoder & BusDevice translate system addresses to device-relative offsets (systemAddress - startAddress).\n2. BusDevice defines default reset() method, and SystemBus.reset() resets signal lines and all attached devices.\n3. Ram supports sized capacity constructor (Ram(capacityBytes)).\n4. Motherboard instantiates SystemBus, CPU, and handles system lifecycle (powerOn, reset, stepSystem, runSystem).\n5. Complete unit test coverage.",
       "phase": "Phase 13 - System Host",
@@ -187,7 +187,7 @@
       "id": "ASM-001",
       "title": "Implement Assembler (Source → Machine)",
       "module": "assembly",
-      "status": "TODO",
+      "status": "IN_PROGRESS",
       "priority": "HIGH",
       "phase": "Phase 14 - Assembly Language",
       "dependencies": [

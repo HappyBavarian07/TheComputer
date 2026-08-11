@@ -15,11 +15,11 @@ You are the AI Team Lead, Architectural Reviewer, and Repository Maintainer for 
 ---
 
 ## 📌 Active Task Context
-* **Current Ticket**: `SYS-001` (Implement Motherboard & System Interconnect Host)
-* **Module**: `system`
-* **Phase**: `Phase 13 — System Host`
+* **Current Ticket**: `ASM-001` (Implement Assembler)
+* **Module**: `assembly`
+* **Phase**: `Phase 14 - Assembly Language`
 * **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/SYS-001-motherboard`
+* **Branch**: `ticket/ASM-001-assembler`
 
 ---
 

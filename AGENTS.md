@@ -7,9 +7,9 @@
 ---
 
 ## 📌 Active Task State
-* **Current Ticket in Alignment**: `SYS-001` (Implement Motherboard & System Interconnect Host)
+* **Current Ticket in Alignment**: `ASM-001` (Implement Assembler)
 * **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/SYS-001-motherboard`
+* **Branch**: `ticket/ASM-001-assembler`
 
 ---
 
