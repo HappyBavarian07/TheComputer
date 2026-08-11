@@ -19,7 +19,7 @@ public class InstructionWordEncoderTest {
     @Test
     void reg_out_of_range_throws() {
         InstructionWordEncoder encoder = new InstructionWordEncoder();
-        // create an instruction statement stub
+        // instruction statement stub
         InstructionStatement stmt = new InstructionStatement("MOV", List.of(), new SourceSpan("file",1,1,1,3));
 
         Operand op = new Operand(OperandKind.REGISTER, "r99", null, new SourceSpan("file",1,1,1,3));

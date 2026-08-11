@@ -58,7 +58,7 @@ public class EncoderTest {
 
     @Test
     void pack_ascii_into_single_word() {
-        // bytes: 'A' (65), '\n' (10), '\0' (0)
+        // ASCII bytes: 65, 10, 0
         String src = ".ascii \"A\\n\\0\"";
         EncodedProgram ep = encode(src);
         List<EncodedWord> words = ep.words();
@@ -72,7 +72,7 @@ public class EncoderTest {
 
     @Test
     void directive_instruction_collision_throws() {
-        // nop at address 0, then force a .word at address 0 via .org 0 -> collision
+        // nop at address 0; .org 0 and .word 1 cause a collision at address 0
         String src = "nop\n.org 0\n.word 1";
         assertThrows(EncodingException.class, () -> encode(src));
     }

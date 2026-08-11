@@ -34,7 +34,7 @@ public class DirectiveDataEmitterTest {
     void ascii_operands_written_to_sink() {
         DirectiveDataEmitter emitter = new DirectiveDataEmitter();
         DirectiveStatement stmt = new DirectiveStatement(".ascii", List.of(), new SourceSpan("file",1,1,1,6));
-        // simulate resolved ascii bytes as operands
+        // resolved ascii bytes as operands
         Operand dummy = new Operand(OperandKind.NUMBER, "65", 65, new SourceSpan("file",1,1,1,7));
         ResolvedOperand r1 = new ResolvedOperand(dummy, OperandKind.NUMBER, "65", 65);
         ResolvedOperand r2 = new ResolvedOperand(dummy, OperandKind.NUMBER, "10", 10);

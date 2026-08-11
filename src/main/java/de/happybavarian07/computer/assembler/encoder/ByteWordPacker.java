@@ -22,9 +22,10 @@ public class ByteWordPacker {
         }
 
         List<EncodedWord> result = new ArrayList<>();
-        List<Integer> bases = new ArrayList<>(grouped.keySet());
-        Collections.sort(bases);
-        for (int base : bases) {
+        // iterate bases in ascending order for deterministic output
+                List<Integer> bases = new ArrayList<>(grouped.keySet());
+                Collections.sort(bases);
+                for (int base : bases) {
             int[] lanes = grouped.get(base);
             int raw = (lanes[0]) | (lanes[1] << 8) | (lanes[2] << 16) | (lanes[3] << 24);
             result.add(new EncodedWord(base, raw));
