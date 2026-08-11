@@ -1138,6 +1138,10 @@ class MainWindow(QMainWindow):
         self.kanban_board = KanbanBoardWidget(json_path, self)
         self.tabs.addTab(self.kanban_board, "Kanban Board")
 
+        # Dependency roadmap (make it default open)
+        self.dependency_roadmap = DependencyRoadmapWidget(self.kanban_board)
+        self.tabs.addTab(self.dependency_roadmap, "Dependency Roadmap")
+
         self.diagram_editor = DiagramEditorWidget(self.root_dir, self)
         self.tabs.addTab(self.diagram_editor, "Diagram Creator & Editor")
 
@@ -1147,6 +1151,9 @@ class MainWindow(QMainWindow):
 
         self.roadmap_browser = RoadmapBrowserWidget(self.root_dir)
         self.tabs.addTab(self.roadmap_browser, "Roadmaps & Docs")
+
+        # Open Dependency Roadmap tab by default
+        self.tabs.setCurrentWidget(self.dependency_roadmap)
 
     def setup_watcher(self):
         self.watcher = QFileSystemWatcher(self)
