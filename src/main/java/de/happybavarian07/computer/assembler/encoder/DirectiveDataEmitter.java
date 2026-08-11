@@ -68,7 +68,7 @@ public class DirectiveDataEmitter {
         if (currentAddr < 0 || currentAddr > Architecture.MEMORY_SIZE_BYTES - 1)
             throw new EncodingException(spanForErrors, "current address outside '0.." + (Architecture.MEMORY_SIZE_BYTES - 1) + "'");
         if (byteSink.containsAddress(currentAddr))
-            throw new EncodingException(spanForErrors, "duplicate byte write");
+            throw new EncodingException(spanForErrors, "duplicate byte write at address " + currentAddr);
         if(value < 0 || value > 255)
             throw new EncodingException(spanForErrors, "byte value must be in '0..255', got " + value);
 
