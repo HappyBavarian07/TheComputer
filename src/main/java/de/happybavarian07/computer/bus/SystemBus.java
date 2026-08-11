@@ -11,11 +11,11 @@ import de.happybavarian07.computer.exceptions.bus.BusFaultException;
  * @Date August 09, 2026 | 14:13
  */
 public class SystemBus {
-    private AddressDecoder addressDecoder;
-    private Address addressBus;
-    private Address relativeAddressBus;
-    private Word dataBus;
-    private Bit readEnable, writeEnable;
+    private final AddressDecoder addressDecoder;
+    private final Address addressBus;
+    private final Address relativeAddressBus;
+    private final Word dataBus;
+    private final Bit readEnable, writeEnable;
 
     public SystemBus() {
         addressDecoder = new AddressDecoder();
