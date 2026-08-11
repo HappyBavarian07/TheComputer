@@ -478,12 +478,38 @@ class KanbanBoardWidget(QWidget):
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Dynamic phase columns container: columns are created in apply_filters
-        self.columns_widget = QWidget()
-        self.columns_layout = QHBoxLayout(self.columns_widget)
-        self.columns_layout.setContentsMargins(0, 0, 0, 0)
-        self.columns_layout.setSpacing(12)
-        splitter.addWidget(self.columns_widget)
+        # Classic 3-column Kanban (TODO / IN_PROGRESS / DONE)
+        self.use_classic_kanban = True
+
+        todo_widget = QWidget()
+        todo_lay = QVBoxLayout(todo_widget)
+        todo_lay.setContentsMargins(0, 0, 0, 0)
+        self.t_lbl = QLabel("To Do (0)")
+        self.t_lbl.setObjectName("columnTitleTodo")
+        self.todo_list = KanbanListWidget("TODO", self)
+        todo_lay.addWidget(self.t_lbl)
+        todo_lay.addWidget(self.todo_list)
+        splitter.addWidget(todo_widget)
+
+        ip_widget = QWidget()
+        ip_lay = QVBoxLayout(ip_widget)
+        ip_lay.setContentsMargins(0, 0, 0, 0)
+        self.ip_lbl = QLabel("In Progress (0)")
+        self.ip_lbl.setObjectName("columnTitleIP")
+        self.ip_list = KanbanListWidget("IN_PROGRESS", self)
+        ip_lay.addWidget(self.ip_lbl)
+        ip_lay.addWidget(self.ip_list)
+        splitter.addWidget(ip_widget)
+
+        done_widget = QWidget()
+        done_lay = QVBoxLayout(done_widget)
+        done_lay.setContentsMargins(0, 0, 0, 0)
+        self.d_lbl = QLabel("Done (0)")
+        self.d_lbl.setObjectName("columnTitleDone")
+        self.done_list = KanbanListWidget("DONE", self)
+        done_lay.addWidget(self.d_lbl)
+        done_lay.addWidget(self.done_list)
+        splitter.addWidget(done_widget)
 
         layout.addWidget(splitter)
 
@@ -504,73 +530,58 @@ class KanbanBoardWidget(QWidget):
             pass
 
     def apply_filters(self):
-        # Rebuild dynamic phase columns on every filter/update
-        # Clear previous column widgets
-        for i in reversed(range(self.columns_layout.count())):
-            w = self.columns_layout.itemAt(i).widget()
-            if w:
-                w.setParent(None)
-
         mod_f = self.module_filter.currentText()
         prio_f = self.priority_filter.currentText()
         search_f = self.search_edit.text().lower()
 
-        total_tasks = 0
+        todo_count = 0
+        ip_count = 0
+        done_count = 0
+
+        total_tasks = len(self.tasks)
         completed_tasks = 0
 
-        # Collect visible tasks after filters
-        visible = []
+        # Clear classic lists
+        if getattr(self, 'use_classic_kanban', False):
+            self.todo_list.clear()
+            self.ip_list.clear()
+            self.done_list.clear()
+
         for t in self.tasks:
             if t.get("status") == "DONE":
                 completed_tasks += 1
+
             if mod_f != "ALL" and t.get("module") != mod_f:
                 continue
             if prio_f != "ALL" and t.get("priority") != prio_f:
                 continue
             if search_f and search_f not in t.get("title", "").lower() and search_f not in t.get("id", "").lower():
                 continue
-            visible.append(t)
-            total_tasks += 1
 
-        # Group tasks by phase
-        phase_map = {}
-        for t in visible:
-            p = t.get("phase") or "Unspecified"
-            phase_map.setdefault(p, []).append(t)
+            status = t.get("status", "TODO")
+            card_widget = TaskCardWidget(t)
+            item = QListWidgetItem()
+            item.setSizeHint(card_widget.sizeHint())
+            item.setData(Qt.ItemDataRole.UserRole, t)
 
-        # Sort phases by natural order (attempt numeric prefix), then name
-        def phase_key(p):
-            m = re.match(r"Phase\s*(\d+)", p)
-            if m:
-                return (int(m.group(1)), p)
-            return (9999, p)
-        phases = sorted(list(phase_map.keys()), key=phase_key)
+            if status == "TODO":
+                self.todo_list.addItem(item)
+                self.todo_list.setItemWidget(item, card_widget)
+                todo_count += 1
+            elif status == "IN_PROGRESS":
+                self.ip_list.addItem(item)
+                self.ip_list.setItemWidget(item, card_widget)
+                ip_count += 1
+            else:
+                self.done_list.addItem(item)
+                self.done_list.setItemWidget(item, card_widget)
+                done_count += 1
 
-        self.phase_lists = {}
-        for p in phases:
-            col_widget = QWidget()
-            col_layout = QVBoxLayout(col_widget)
-            col_layout.setContentsMargins(0,0,0,0)
-            lbl = QLabel(f"{p} ({len(phase_map.get(p, []))})")
-            lbl.setStyleSheet("font-weight:bold; color:#f0f6fc; margin-bottom:6px;")
-            col_layout.addWidget(lbl)
+        self.t_lbl.setText(f"To Do ({todo_count})")
+        self.ip_lbl.setText(f"In Progress ({ip_count})")
+        self.d_lbl.setText(f"Done ({done_count})")
 
-            listw = PhaseListWidget(p, self)
-            self.phase_lists[p] = listw
-            col_layout.addWidget(listw)
-            self.columns_layout.addWidget(col_widget)
-
-            # populate
-            for t in phase_map.get(p, []):
-                card_widget = TaskCardWidget(t)
-                item = QListWidgetItem()
-                item.setSizeHint(card_widget.sizeHint())
-                item.setData(Qt.ItemDataRole.UserRole, t)
-                listw.addItem(item)
-                listw.setItemWidget(item, card_widget)
-
-        # Update overall progress
-        pct = int((completed_tasks / len(self.tasks) * 100)) if len(self.tasks) > 0 else 0
+        pct = int((completed_tasks / total_tasks * 100)) if total_tasks > 0 else 0
         self.progress_bar.setValue(pct)
 
     
