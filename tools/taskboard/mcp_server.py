@@ -105,6 +105,21 @@ def handle_request(request):
                     },
                     "required": ["task_id", "status"]
                 }
+            },
+            {
+                "name": "get_phases",
+                "description": "Return a list of all phases found in the taskboard.",
+                "inputSchema": {"type": "object", "properties": {}}
+            },
+            {
+                "name": "get_dependency_graph",
+                "description": "Return a nodes/edges dependency graph for tasks (for visualization).",
+                "inputSchema": {"type": "object", "properties": {"module": {"type": "string"}}}
+            },
+            {
+                "name": "visualize_board",
+                "description": "Return a compact graph representation (nodes & edges) suitable for rendering a network view of tasks and phases.",
+                "inputSchema": {"type": "object", "properties": {"format": {"type": "string", "enum": ["nodes_edges", "dot"], "default": "nodes_edges"}}}
             }
         ]
         return {"jsonrpc": "2.0", "id": req_id, "result": {"tools": tools}}
@@ -149,7 +164,8 @@ def handle_request(request):
                 "status": "TODO",
                 "description": args.get("description", ""),
                 "phase": args.get("phase", "General"),
-                "tags": [args.get("module", "SERVER").upper()]
+                "tags": [args.get("module", "SERVER").upper()],
+                "dependencies": args.get("dependencies", [])
             }
             tasks.append(new_task)
             save_data(data)
@@ -169,6 +185,47 @@ def handle_request(request):
                 return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": f"Task {tid} updated to {nstat}."}]}}
             else:
                 return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": f"Task {tid} not found."}], "isError": True}}
+
+        elif name == "get_phases":
+            phases = sorted({t.get("phase") for t in tasks if t.get("phase")})
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "application/json", "data": {"phases": phases}}]}}
+
+        elif name == "get_dependency_graph":
+            nodes = []
+            edges = []
+            for t in tasks:
+                nodes.append({"id": t.get("id"), "label": t.get("title"), "phase": t.get("phase"), "status": t.get("status")})
+                for dep in t.get("dependencies", []):
+                    edges.append({"from": dep, "to": t.get("id")})
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "application/json", "data": {"nodes": nodes, "edges": edges}}]}}
+
+        elif name == "visualize_board":
+            fmt = args.get("format", "nodes_edges")
+            nodes = []
+            edges = []
+            phase_nodes = {}
+            for t in tasks:
+                nid = t.get("id")
+                nodes.append({"id": nid, "label": t.get("title"), "phase": t.get("phase"), "status": t.get("status")})
+                for dep in t.get("dependencies", []):
+                    edges.append({"from": dep, "to": nid})
+                p = t.get("phase") or "Unspecified"
+                phase_nodes.setdefault(p, []).append(nid)
+
+            if fmt == "dot":
+                lines = ["digraph G {"]
+                for p, ids in phase_nodes.items():
+                    lines.append(f'  subgraph cluster_{p.replace(" ", "_").replace("-", "_")[:40]} {{')
+                    lines.append(f'    label = "{p}";')
+                    for i in ids:
+                        lines.append(f'    "{i}";')
+                    lines.append('  }')
+                for e in edges:
+                    lines.append(f'  "{e["from"]}" -> "{e["to"]}";')
+                lines.append('}')
+                return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": "\n".join(lines)}]}}
+            else:
+                return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "application/json", "data": {"nodes": nodes, "edges": edges, "phases": list(phase_nodes.keys())}}]}}
 
     if req_id is not None:
         return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32601, "message": f"Method {method} not found"}}

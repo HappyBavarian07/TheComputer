@@ -477,35 +477,12 @@ class KanbanBoardWidget(QWidget):
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        todo_widget = QWidget()
-        todo_lay = QVBoxLayout(todo_widget)
-        todo_lay.setContentsMargins(0, 0, 0, 0)
-        self.t_lbl = QLabel("To Do (0)")
-        self.t_lbl.setObjectName("columnTitleTodo")
-        self.todo_list = KanbanListWidget("TODO", self)
-        todo_lay.addWidget(self.t_lbl)
-        todo_lay.addWidget(self.todo_list)
-        splitter.addWidget(todo_widget)
-
-        ip_widget = QWidget()
-        ip_lay = QVBoxLayout(ip_widget)
-        ip_lay.setContentsMargins(0, 0, 0, 0)
-        self.ip_lbl = QLabel("In Progress (0)")
-        self.ip_lbl.setObjectName("columnTitleIP")
-        self.ip_list = KanbanListWidget("IN_PROGRESS", self)
-        ip_lay.addWidget(self.ip_lbl)
-        ip_lay.addWidget(self.ip_list)
-        splitter.addWidget(ip_widget)
-
-        done_widget = QWidget()
-        done_lay = QVBoxLayout(done_widget)
-        done_lay.setContentsMargins(0, 0, 0, 0)
-        self.d_lbl = QLabel("Done (0)")
-        self.d_lbl.setObjectName("columnTitleDone")
-        self.done_list = KanbanListWidget("DONE", self)
-        done_lay.addWidget(self.d_lbl)
-        done_lay.addWidget(self.done_list)
-        splitter.addWidget(done_widget)
+        # Dynamic phase columns container: columns are created in apply_filters
+        self.columns_widget = QWidget()
+        self.columns_layout = QHBoxLayout(self.columns_widget)
+        self.columns_layout.setContentsMargins(0, 0, 0, 0)
+        self.columns_layout.setSpacing(12)
+        splitter.addWidget(self.columns_widget)
 
         layout.addWidget(splitter)
 
@@ -519,66 +496,87 @@ class KanbanBoardWidget(QWidget):
                     self.tasks = data
                 elif isinstance(data, dict):
                     self.tasks = data.get("tasks", [])
+            # Ensure phase_lists mapping exists
+            self.phase_lists = {}
             self.apply_filters()
         except (json.JSONDecodeError, OSError, ValueError):
             pass
 
     def apply_filters(self):
-        self.todo_list.clear()
-        self.ip_list.clear()
-        self.done_list.clear()
+        # Rebuild dynamic phase columns on every filter/update
+        # Clear previous column widgets
+        for i in reversed(range(self.columns_layout.count())):
+            w = self.columns_layout.itemAt(i).widget()
+            if w:
+                w.setParent(None)
 
         mod_f = self.module_filter.currentText()
         prio_f = self.priority_filter.currentText()
         search_f = self.search_edit.text().lower()
 
-        todo_count = 0
-        ip_count = 0
-        done_count = 0
-
-        total_tasks = len(self.tasks)
+        total_tasks = 0
         completed_tasks = 0
 
+        # Collect visible tasks after filters
+        visible = []
         for t in self.tasks:
             if t.get("status") == "DONE":
                 completed_tasks += 1
-
             if mod_f != "ALL" and t.get("module") != mod_f:
                 continue
             if prio_f != "ALL" and t.get("priority") != prio_f:
                 continue
             if search_f and search_f not in t.get("title", "").lower() and search_f not in t.get("id", "").lower():
                 continue
+            visible.append(t)
+            total_tasks += 1
 
-            status = t.get("status", "TODO")
-            card_widget = TaskCardWidget(t)
-            item = QListWidgetItem()
-            item.setSizeHint(card_widget.sizeHint())
-            item.setData(Qt.ItemDataRole.UserRole, t)
+        # Group tasks by phase
+        phase_map = {}
+        for t in visible:
+            p = t.get("phase") or "Unspecified"
+            phase_map.setdefault(p, []).append(t)
 
-            if status == "TODO":
-                self.todo_list.addItem(item)
-                self.todo_list.setItemWidget(item, card_widget)
-                todo_count += 1
-            elif status == "IN_PROGRESS":
-                self.ip_list.addItem(item)
-                self.ip_list.setItemWidget(item, card_widget)
-                ip_count += 1
-            else:
-                self.done_list.addItem(item)
-                self.done_list.setItemWidget(item, card_widget)
-                done_count += 1
+        # Sort phases by natural order (attempt numeric prefix), then name
+        def phase_key(p):
+            m = re.match(r"Phase\s*(\d+)", p)
+            if m:
+                return (int(m.group(1)), p)
+            return (9999, p)
+        phases = sorted(list(phase_map.keys()), key=phase_key)
 
-        self.t_lbl.setText(f"To Do ({todo_count})")
-        self.ip_lbl.setText(f"In Progress ({ip_count})")
-        self.d_lbl.setText(f"Done ({done_count})")
+        self.phase_lists = {}
+        for p in phases:
+            col_widget = QWidget()
+            col_layout = QVBoxLayout(col_widget)
+            col_layout.setContentsMargins(0,0,0,0)
+            lbl = QLabel(f"{p} ({len(phase_map.get(p, []))})")
+            lbl.setStyleSheet("font-weight:bold; color:#f0f6fc; margin-bottom:6px;")
+            col_layout.addWidget(lbl)
 
-        pct = int((completed_tasks / total_tasks * 100)) if total_tasks > 0 else 0
+            listw = PhaseListWidget(p, self)
+            self.phase_lists[p] = listw
+            col_layout.addWidget(listw)
+            self.columns_layout.addWidget(col_widget)
+
+            # populate
+            for t in phase_map.get(p, []):
+                card_widget = TaskCardWidget(t)
+                item = QListWidgetItem()
+                item.setSizeHint(card_widget.sizeHint())
+                item.setData(Qt.ItemDataRole.UserRole, t)
+                listw.addItem(item)
+                listw.setItemWidget(item, card_widget)
+
+        # Update overall progress
+        pct = int((completed_tasks / len(self.tasks) * 100)) if len(self.tasks) > 0 else 0
         self.progress_bar.setValue(pct)
+
+    
 
     def save_tasks(self):
         data = {
-            "project": "SimpleChatApp",
+            "project": "TheComputer",
             "version": "1.0.0",
             "tasks": self.tasks
         }
@@ -590,6 +588,14 @@ class KanbanBoardWidget(QWidget):
         for t in self.tasks:
             if t.get("id") == task_data.get("id"):
                 t["status"] = new_status
+                break
+        self.save_tasks()
+        self.apply_filters()
+
+    def move_task_phase(self, task_data, new_phase):
+        for t in self.tasks:
+            if t.get("id") == task_data.get("id"):
+                t["phase"] = new_phase
                 break
         self.save_tasks()
         self.apply_filters()
@@ -612,6 +618,108 @@ class KanbanBoardWidget(QWidget):
             self.tasks.append(new_data)
             self.save_tasks()
             self.apply_filters()
+
+class PhaseListWidget(QListWidget):
+    def __init__(self, phase_name, parent_board):
+        super().__init__()
+        self.phase_name = phase_name
+        self.parent_board = parent_board
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.show_context_menu)
+
+    def show_context_menu(self, pos):
+        item = self.itemAt(pos)
+        if not item:
+            return
+        task_data = item.data(Qt.ItemDataRole.UserRole)
+        menu = QMenu(self)
+        menu.setStyleSheet("background-color: #161b22; color: #f0f6fc; border: 1px solid #30363d;")
+        edit_act = QAction("View Details / Edit", self)
+        edit_act.triggered.connect(lambda: self.parent_board.edit_task(task_data))
+        menu.addAction(edit_act)
+
+        # Move to another phase submenu
+        move_menu = QMenu("Move to Phase", self)
+        phases = sorted({t.get("phase") or "Unspecified" for t in self.parent_board.tasks})
+        for p in phases:
+            act = QAction(p, self)
+            act.triggered.connect(lambda checked, p=p, td=task_data: self.parent_board.move_task_phase(td, p))
+            move_menu.addAction(act)
+        menu.addMenu(move_menu)
+
+        # Status actions
+        menu.addSeparator()
+        for s in ("TODO", "IN_PROGRESS", "DONE"):
+            act = QAction(f"Set status: {s}", self)
+            act.triggered.connect(lambda checked, s=s, td=task_data: self.parent_board.move_task(td, s))
+            menu.addAction(act)
+
+        menu.exec(self.mapToGlobal(pos))
+
+
+class NetworkWidget(QWidget):
+    def __init__(self, kanban_board):
+        super().__init__()
+        self.kanban = kanban_board
+        self.setup_ui()
+
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+        top = QHBoxLayout()
+        gen_btn = QPushButton("Generate Graph (DOT)")
+        gen_btn.clicked.connect(self.generate_dot)
+        top.addWidget(gen_btn)
+        export_btn = QPushButton("Export DOT to file")
+        export_btn.setObjectName("secondaryBtn")
+        export_btn.clicked.connect(self.export_dot)
+        top.addWidget(export_btn)
+        top.addStretch()
+        layout.addLayout(top)
+
+        self.viewer = QTextBrowser()
+        layout.addWidget(self.viewer)
+
+    def generate_dot(self):
+        tasks = self.kanban.tasks
+        phase_nodes = {}
+        nodes = []
+        edges = []
+        for t in tasks:
+            nid = t.get("id")
+            nodes.append(nid)
+            p = t.get("phase") or "Unspecified"
+            phase_nodes.setdefault(p, []).append(nid)
+            for dep in t.get("dependencies", []):
+                edges.append((dep, nid))
+
+        lines = ["digraph G {", "  rankdir=LR;", "  node [shape=box, style=filled, fillcolor=\"#21262d\", fontcolor=\"#c9d1d9\"];"]
+        for p, ids in phase_nodes.items():
+            safe = re.sub(r"[^A-Za-z0-9_]", "_", p)[:40]
+            lines.append(f'  subgraph cluster_{safe} {{')
+            lines.append(f'    label = "{p}";')
+            for i in ids:
+                lines.append(f'    "{i}";')
+            lines.append('  }')
+        for a, b in edges:
+            lines.append(f'  "{a}" -> "{b}";')
+        lines.append('}')
+        dot = "\n".join(lines)
+        self.last_dot = dot
+        self.viewer.setPlainText(dot)
+
+    def export_dot(self):
+        if not hasattr(self, 'last_dot'):
+            QMessageBox.information(self, "No graph", "Generate the graph before exporting.")
+            return
+        fname = QFileDialog.getSaveFileName(self, "Save DOT", os.path.join(os.getcwd(), "task_graph.dot"), "DOT Files (*.dot);;All Files (*)")[0]
+        if fname:
+            try:
+                with open(fname, 'w', encoding='utf-8') as f:
+                    f.write(self.last_dot)
+                QMessageBox.information(self, "Saved", f"DOT exported to {fname}")
+            except Exception as e:
+                QMessageBox.critical(self, "Export Error", str(e))
+
 
 class DiagramEditorWidget(QWidget):
     def __init__(self, root_dir, main_window):
@@ -870,6 +978,10 @@ class MainWindow(QMainWindow):
 
         self.diagram_editor = DiagramEditorWidget(self.root_dir, self)
         self.tabs.addTab(self.diagram_editor, "Diagram Creator & Editor")
+
+        # Network / dependency view driven from current board data
+        self.network_widget = NetworkWidget(self.kanban_board)
+        self.tabs.addTab(self.network_widget, "Network View")
 
         self.roadmap_browser = RoadmapBrowserWidget(self.root_dir)
         self.tabs.addTab(self.roadmap_browser, "Roadmaps & Docs")

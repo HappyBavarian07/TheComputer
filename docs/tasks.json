@@ -8,7 +8,7 @@
       "module": "core",
       "status": "DONE",
       "priority": "HIGH",
-      "phase": "Phase 1 — Fundamental Data Types",
+      "phase": "Phase 1 - Fundamental Data Types",
       "dependencies": [],
       "description": "Pre-allocate internal Bit array slots in FixedWidthBits to enforce exclusive ownership and prevent aliasing bugs when setting/getting bits.",
       "acceptance_criteria": "1. FixedWidthBits pre-allocates internal Bit array in constructor.\n2. set(Bit[]) and set(int, Bit) perform deep copy of bit values.\n3. set(String) updates existing owned slots.\n4. Copy constructor performs full deep copy.",
@@ -20,8 +20,10 @@
       "module": "core",
       "status": "DONE",
       "priority": "HIGH",
-      "phase": "Phase 1 — Fundamental Data Types",
-      "dependencies": ["CORE-001"],
+      "phase": "Phase 1 - Fundamental Data Types",
+      "dependencies": [
+        "CORE-001"
+      ],
       "description": "Implement Byte (8-bit), Word (32-bit), and Address (16-bit) types extending FixedWidthBits.",
       "acceptance_criteria": "1. Byte constrained to 8 bits.\n2. Word constrained to 32 bits.\n3. Address constrained to 16 bits.\n4. Conversion utilities to long/int and String operate accurately.",
       "notes": "Completed basic implementations in core package."
@@ -32,8 +34,10 @@
       "module": "core",
       "status": "DONE",
       "priority": "HIGH",
-      "phase": "Phase 2 — Logic Gates",
-      "dependencies": ["CORE-001"],
+      "phase": "Phase 2 - Logic Gates",
+      "dependencies": [
+        "CORE-001"
+      ],
       "description": "Implement NOT, AND, OR, XOR, NAND, NOR logic gates with both allocating and destination-based (zero-allocation) overloads.",
       "acceptance_criteria": "1. LogicGates provides void destination-based methods for all gate types.\n2. No allocations occur during destination-based gate executions.\n3. Allocating methods preserved for unit tests.",
       "notes": "Completed in previous refactor."
@@ -42,10 +46,12 @@
       "id": "CORE-004",
       "title": "Implement Half Adder and Full Adder Circuits",
       "module": "core",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "priority": "HIGH",
-      "phase": "Phase 4 — Arithmetic Logic",
-      "dependencies": ["CORE-003"],
+      "phase": "Phase 4 - Arithmetic Logic",
+      "dependencies": [
+        "CORE-003"
+      ],
       "description": "Build single-bit Half Adder (Sum, Carry) and Full Adder (Sum, CarryOut) using destination-based logic gates.",
       "acceptance_criteria": "1. HalfAdder calculates Sum = A XOR B, Carry = A AND B without object allocation.\n2. FullAdder calculates Sum and CarryOut for A, B, CarryIn.\n3. Complete unit test suite verifying truth tables for all input combinations.",
       "notes": "Target for next sprint alignment."
@@ -56,8 +62,10 @@
       "module": "core",
       "status": "DONE",
       "priority": "HIGH",
-      "phase": "Phase 4 — Arithmetic Logic",
-      "dependencies": ["CORE-004"],
+      "phase": "Phase 4 - Arithmetic Logic",
+      "dependencies": [
+        "CORE-004"
+      ],
       "description": "Cascade 32 Full Adders to construct a zero-allocation 32-bit Word adder/subtractor with Carry and Overflow output.",
       "acceptance_criteria": "1. 32-bit addition computes sum in destination Word.\n2. Subtraction implemented using two's complement inversion + CarryIn=1.\n3. Correct generation of CarryOut and Two's Complement Overflow signals.\n4. Comprehensive unit tests covering boundary values (0, MaxInt, MinInt, overflow).",
       "notes": "Requires scratch bit pre-allocation in adder instance."
@@ -68,8 +76,10 @@
       "module": "cpu",
       "status": "DONE",
       "priority": "HIGH",
-      "phase": "Phase 5 — ALU",
-      "dependencies": ["CORE-005"],
+      "phase": "Phase 5 - ALU",
+      "dependencies": [
+        "CORE-005"
+      ],
       "description": "Construct 32-bit ALU supporting ADD, SUB, AND, OR, XOR, NOT, Shift Left, Shift Right, and flag generation (Z, N, C, V).",
       "acceptance_criteria": "1. ALU accepts two input Words, control op, and writes to output Word.\n2. Sets Z (Zero), N (Negative), C (Carry), V (Overflow) flags accurately.\n3. Execution is entirely zero-allocation.",
       "notes": "Main CPU execution component."
@@ -80,8 +90,10 @@
       "module": "cpu",
       "status": "DONE",
       "priority": "HIGH",
-      "phase": "Phase 7 — Registers",
-      "dependencies": ["CORE-002"],
+      "phase": "Phase 7 - Registers",
+      "dependencies": [
+        "CORE-002"
+      ],
       "description": "Implement 16 general-purpose 32-bit registers (R0-R15) and special registers (PC, SP, IR, FLAGS).",
       "acceptance_criteria": "1. RegisterFile allows indexed read/write of R0-R15.\n2. Dedicated accessors for PC (16-bit address), SP (16-bit address), IR (Word), and FLAGS.\n3. Reset method clears register state.",
       "notes": "Foundation for CPU execution state."
@@ -92,8 +104,10 @@
       "module": "memory",
       "status": "DONE",
       "priority": "HIGH",
-      "phase": "Phase 8 — Memory",
-      "dependencies": ["CORE-002"],
+      "phase": "Phase 8 - Memory",
+      "dependencies": [
+        "CORE-002"
+      ],
       "description": "Implement 64 KiB byte-addressable RAM with 16-bit Address lookup, Word read/write (little-endian), and bounds checking.",
       "acceptance_criteria": "1. ReadByte / WriteByte at 16-bit Address.\n2. ReadWord / WriteWord handles little-endian 4-byte encoding.\n3. Out-of-bounds access throws explicit exception.",
       "notes": "Memory storage layer."
@@ -104,8 +118,12 @@
       "module": "isa",
       "status": "DONE",
       "priority": "HIGH",
-      "phase": "Phase 10 — ISA Design",
-      "dependencies": ["CPU-001", "CPU-002", "MEM-001"],
+      "phase": "Phase 10 - ISA Design",
+      "dependencies": [
+        "CPU-001",
+        "CPU-002",
+        "MEM-001"
+      ],
       "description": "Specify instruction format, opcodes (MOV, LOAD, STORE, ADD, SUB, AND, OR, JMP, JZ, PUSH, POP, HALT), and instruction decoder.",
       "acceptance_criteria": "1. Complete Opcode enum and bit layout specification.\n2. InstructionDecoder converts raw Word into decoded Instruction record.\n3. Verification test suite for encoding and decoding all instructions.",
       "notes": "Bridge between CPU hardware and software."
@@ -116,8 +134,10 @@
       "module": "cpu",
       "status": "DONE",
       "priority": "HIGH",
-      "phase": "Phase 12 — CPU Cycle",
-      "dependencies": ["ISA-001"],
+      "phase": "Phase 12 - CPU Cycle",
+      "dependencies": [
+        "ISA-001"
+      ],
       "description": "Implement CPU main loop driving Fetch (from PC), Decode, Execute via ALU/Memory, and Writeback.",
       "acceptance_criteria": "1. Single-step execution executes one instruction and advances PC.\n2. Execute loop runs until HALT instruction or interrupt.\n3. Test execution of hand-encoded machine code programs.",
       "notes": "Core CPU engine."
@@ -128,8 +148,10 @@
       "module": "cpu",
       "status": "DONE",
       "priority": "HIGH",
-      "phase": "Phase 12 — CPU Cycle",
-      "dependencies": ["CPU-003"],
+      "phase": "Phase 12 - CPU Cycle",
+      "dependencies": [
+        "CPU-003"
+      ],
       "description": "Implement dynamic STACK_BASE and STACK_LIMIT derived from Architecture.MEMORY_SIZE_BYTES and enforce StackOverflowException on stack boundary breaches during PUSH.",
       "acceptance_criteria": "1. Dynamic calculation of STACK_BASE and STACK_LIMIT using MEMORY_SIZE_BYTES.\n2. PUSH operation checks SP against STACK_LIMIT and throws StackOverflowException if breached.\n3. Unit tests verifying stack boundary traps.",
       "notes": "Stack memory protection."
@@ -140,8 +162,10 @@
       "module": "memory",
       "status": "TODO",
       "priority": "MEDIUM",
-      "phase": "Phase 30.5 — MMU & Memory Protection",
-      "dependencies": ["CPU-004"],
+      "phase": "Phase 30.5 - MMU & Memory Protection",
+      "dependencies": [
+        "CPU-004"
+      ],
       "description": "Implement Memory Management Unit (MMU) with Guard Pages, page permission tables (R/W/X), and SegmentationFaultException.",
       "acceptance_criteria": "1. Page table mapping with Read/Write/Execute permissions.\n2. Guard Page detection triggering SegmentationFaultException.\n3. Complete unit test coverage for memory protection traps.",
       "notes": "Advanced hardware memory protection."
@@ -149,14 +173,230 @@
     {
       "id": "SYS-001",
       "title": "Implement Motherboard & System Interconnect Host",
-      "module": "system",
-      "status": "IN_PROGRESS",
+      "module": "server",
       "priority": "HIGH",
-      "phase": "Phase 13 — System Host",
-      "dependencies": ["CPU-003", "BUS-001"],
+      "status": "IN_PROGRESS",
       "description": "Build Motherboard host assembling CPU, SystemBus, RamBusDevice, and RomBusDevice, and refactor BusDevice/AddressDecoder for relative address offset translation and reset lifecycle.",
       "acceptance_criteria": "1. AddressDecoder & BusDevice translate system addresses to device-relative offsets (systemAddress - startAddress).\n2. BusDevice defines default reset() method, and SystemBus.reset() resets signal lines and all attached devices.\n3. Ram supports sized capacity constructor (Ram(capacityBytes)).\n4. Motherboard instantiates SystemBus, CPU, and handles system lifecycle (powerOn, reset, stepSystem, runSystem).\n5. Complete unit test coverage.",
-      "notes": "Hardware system host & bus interconnect refactor."
+      "phase": "Phase 13 - System Host",
+      "tags": [
+        "SERVER"
+      ]
+    },
+    {
+      "id": "ASM-001",
+      "title": "Implement Assembler (Source → Machine)",
+      "module": "assembly",
+      "status": "TODO",
+      "priority": "HIGH",
+      "phase": "Phase 14 - Assembly Language",
+      "dependencies": [
+        "ISA-001"
+      ],
+      "description": "Assembler pipeline: Lexer → Parser → Symbol resolution → Encoding → Output machine code.",
+      "acceptance_criteria": "1. Assemble simple programs to machine code.\n2. Error messages point to source line.\n3. Support labels and constants.",
+      "notes": "Required for first programs."
+    },
+    {
+      "id": "DIS-001",
+      "title": "Implement Disassembler (Machine → Assembly)",
+      "module": "assembly",
+      "status": "TODO",
+      "priority": "MEDIUM",
+      "phase": "Phase 16 - Disassembler",
+      "dependencies": [
+        "ISA-001"
+      ],
+      "description": "Convert machine code back to readable assembly for debugging.",
+      "acceptance_criteria": "1. Disassemble machine code produced by assembler.\n2. Preserve labels when possible.",
+      "notes": "Helps debugging and verification."
+    },
+    {
+      "id": "DBG-001",
+      "title": "Implement Debugger (step, breakpoints, views)",
+      "module": "debugger",
+      "status": "TODO",
+      "priority": "HIGH",
+      "phase": "Phase 17 - Debugger",
+      "dependencies": [
+        "CPU-003",
+        "MEM-001",
+        "ISA-001"
+      ],
+      "description": "Provide step execution, breakpoints, register/memory/stack views, and basic watch expressions.",
+      "acceptance_criteria": "1. Step through instructions and inspect registers & memory.\n2. Set/clear breakpoints.\n3. Present human-readable assembly alongside machine code.",
+      "notes": "Essential for development productivity."
+    },
+    {
+      "id": "IO-001",
+      "title": "Implement Memory-Mapped I/O Ports",
+      "module": "io",
+      "status": "TODO",
+      "priority": "MEDIUM",
+      "phase": "Phase 18 - I/O",
+      "dependencies": [
+        "MEM-001",
+        "SYS-001"
+      ],
+      "description": "Define and implement memory-mapped I/O addresses for input/output devices.",
+      "acceptance_criteria": "1. Read/write to I/O addresses maps to device behavior.\n2. Provide example console output/input device.",
+      "notes": "Keep devices simple and testable."
+    },
+    {
+      "id": "LANG-001",
+      "title": "Design Minimal High-Level Language",
+      "module": "language",
+      "status": "TODO",
+      "priority": "LOW",
+      "phase": "Phase 20 - High-Level Language",
+      "dependencies": [],
+      "description": "Design a tiny language syntax and semantics for first compiler target.",
+      "acceptance_criteria": "1. Small spec and example programs.\n2. Mapping to IR and assembly.",
+      "notes": "Start small (expressions, control flow)."
+    },
+    {
+      "id": "COMP-001",
+      "title": "Implement Compiler Pipeline (AST → IR → Codegen)",
+      "module": "compiler",
+      "status": "TODO",
+      "priority": "HIGH",
+      "phase": "Phase 21 - Compiler Pipeline",
+      "dependencies": [
+        "LANG-001",
+        "ASM-001"
+      ],
+      "description": "End-to-end compiler pipeline that emits assembly for simple language constructs.",
+      "acceptance_criteria": "1. Compile sample programs to runnable machine code.\n2. Simple optimizations optional.",
+      "notes": "Iterate from simple to more features."
+    },
+    {
+      "id": "LEX-001",
+      "title": "Implement Lexer",
+      "module": "compiler",
+      "status": "TODO",
+      "priority": "MEDIUM",
+      "phase": "Phase 22 - Lexer",
+      "dependencies": [
+        "LANG-001"
+      ],
+      "description": "Tokenize source language into tokens for the parser.",
+      "acceptance_criteria": "1. Token stream for sample inputs.\n2. Error reporting for invalid tokens.",
+      "notes": "Keep tokens minimal."
+    },
+    {
+      "id": "PAR-001",
+      "title": "Implement Parser (AST builder)",
+      "module": "compiler",
+      "status": "TODO",
+      "priority": "MEDIUM",
+      "phase": "Phase 23 - Parser",
+      "dependencies": [
+        "LEX-001"
+      ],
+      "description": "Build AST from token stream and perform basic syntax validation.",
+      "acceptance_criteria": "1. AST for simple programs.\n2. Clear syntax errors.",
+      "notes": "Prepares input for semantic analysis."
+    },
+    {
+      "id": "IR-001",
+      "title": "Define Intermediate Representation (IR)",
+      "module": "compiler",
+      "status": "TODO",
+      "priority": "MEDIUM",
+      "phase": "Phase 25 - IR",
+      "dependencies": [
+        "PAR-001"
+      ],
+      "description": "Design a simple IR suitable for optimization and codegen.",
+      "acceptance_criteria": "1. IR maps cleanly to assembly.\n2. Tooling to print IR for debugging.",
+      "notes": "Keep IR small and explicit."
+    },
+    {
+      "id": "CG-001",
+      "title": "Implement Code Generation (IR → Assembly)",
+      "module": "compiler",
+      "status": "TODO",
+      "priority": "HIGH",
+      "phase": "Phase 26 - Code Generation",
+      "dependencies": [
+        "IR-001",
+        "ASM-001"
+      ],
+      "description": "Lower IR to assembly implementing calling conventions and stack layout.",
+      "acceptance_criteria": "1. Generated assembly runs on emulator/CPU.\n2. Respect calling convention for functions.",
+      "notes": "Essential for compiling higher-level programs."
+    },
+    {
+      "id": "RTE-001",
+      "title": "Implement Minimal Runtime (print/input/malloc)",
+      "module": "runtime",
+      "status": "TODO",
+      "priority": "LOW",
+      "phase": "Phase 27 - Runtime",
+      "dependencies": [
+        "CG-001"
+      ],
+      "description": "Provide basic runtime library functions used by compiled programs.",
+      "acceptance_criteria": "1. Print and input APIs working.\n2. Simple allocator for dynamic memory.",
+      "notes": "Keep small and testable."
+    },
+    {
+      "id": "OPT-001",
+      "title": "Implement Basic Optimizations (constant folding)",
+      "module": "compiler",
+      "status": "TODO",
+      "priority": "LOW",
+      "phase": "Phase 29 - Optimizations",
+      "dependencies": [
+        "IR-001"
+      ],
+      "description": "Implement small set of IR-level optimizations: constant folding, dead code elimination.",
+      "acceptance_criteria": "1. Optimized IR produces identical results and improved code size.",
+      "notes": "Iterate with tests."
+    },
+    {
+      "id": "ADV-001",
+      "title": "Add Advanced CPU Features (interrupts, timers)",
+      "module": "cpu",
+      "status": "TODO",
+      "priority": "LOW",
+      "phase": "Phase 30 - Advanced CPU Features",
+      "dependencies": [
+        "CPU-003"
+      ],
+      "description": "Introduce interrupts, timers, privilege levels, and optional caching hooks.",
+      "acceptance_criteria": "1. Interrupt handling test harness.\n2. Timer interrupt simulation.",
+      "notes": "Optional but useful for OS experiments."
+    },
+    {
+      "id": "OS-001",
+      "title": "Design Minimal OS Layer (scheduler, shell)",
+      "module": "os",
+      "status": "TODO",
+      "priority": "LOW",
+      "phase": "Phase 31 - OS Layer",
+      "dependencies": [
+        "ADV-001",
+        "RTE-001"
+      ],
+      "description": "Simple scheduler and shell to run compiled programs and manage resources.",
+      "acceptance_criteria": "1. Run multiple small programs with basic scheduling.\n2. Shell accepts commands to load/run binaries.",
+      "notes": "Optional advanced milestone."
+    },
+    {
+      "id": "SELF-001",
+      "title": "Self-hosting: Compiler written in own language",
+      "module": "compiler",
+      "status": "TODO",
+      "priority": "LOW",
+      "phase": "Phase 32 - Self-Hosting",
+      "dependencies": [
+        "COMP-001",
+        "CG-001"
+      ],
+      "description": "Goal: rewrite compiler in the project language and bootstrap.",
+      "acceptance_criteria": "1. Compiler can compile a subset of itself.\n2. Bootstrapping procedure documented.",
+      "notes": "Long-term target."
     }
   ]
 }
