@@ -2,12 +2,11 @@
 setlocal enabledelayedexpansion
 
 echo ==========================================
-echo   SimpleChatApp Developer Kanban Board
+echo   TheComputer Developer Kanban Board
 echo ==========================================
 
 cd /d "%~dp0"
 
-:: Check if Python is installed
 python --version >nul 2>&1
 if errorlevel 1 (
     echo [ERROR] Python is not installed or not in your PATH.
@@ -16,7 +15,6 @@ if errorlevel 1 (
     exit /b 1
 )
 
-:: Create virtual environment if it doesn't exist
 if not exist .venv (
     echo [INFO] Creating Python virtual environment in .venv...
     python -m venv .venv
@@ -25,8 +23,8 @@ if not exist .venv (
         pause
         exit /b 1
     )
-    
-    echo [INFO] Activating virtual environment and installing dependencies...
+
+    echo [INFO] Installing dependencies...
     call .venv\Scripts\activate.bat
     python -m pip install --upgrade pip
     pip install -r requirements.txt

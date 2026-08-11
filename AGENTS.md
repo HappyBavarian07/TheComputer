@@ -7,9 +7,9 @@
 ---
 
 ## 📌 Active Task State
-* **Current Ticket in Alignment**: `SYS-001` (Implement Motherboard & System Interconnect Host)
+* **Current Ticket in Alignment**: `ASM-001` (Implement Assembler)
 * **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/SYS-001-motherboard`
+* **Branch**: `ticket/ASM-001-assembler`
 
 ---
 
@@ -33,6 +33,20 @@ When the user says **`"let's align on: ticket-xy"`** (or `"Alignment on: TICKET-
 5. **Risks**: Memory, allocation, bit ownership, or concurrency hazards.
 6. **Acceptance Criteria & Review Expectations**: Hard verification criteria.
 7. **Wait**: Stop and wait for user confirmation before starting implementation.
+
+## 📋 Default Alignment Blueprint Format
+* For architecture or ticket planning discussions, use this structure by default:
+  * **Ticket / Module / Phase / Branch**
+  * **1. Goal**
+  * **2. Intended Scope**
+  * **3. Dependencies**
+  * **4. Conceptual Topology / Dataflow**
+  * **5. Logical Implementation Steps**
+  * **6. Hazards & Architectural Risks**
+  * **7. Acceptance Criteria & Review Expectations**
+  * **Alignment Status**
+* Prefer concise headings and explicit in-scope / out-of-scope bullets over prose-heavy explanations.
+* If the user is asking to align on a ticket, present the blueprint first and wait for confirmation before implementation.
 
 ---
 

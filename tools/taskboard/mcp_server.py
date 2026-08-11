@@ -3,13 +3,30 @@ import sys
 import json
 
 def get_tasks_file():
-    # Always resolve relative to script location tools/taskboard/mcp_server.py -> project root
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.abspath(os.path.join(script_dir, "..", ".."))
-    tasks_path = os.path.join(project_root, "docs", "tasks.json")
-    if os.path.exists(tasks_path):
-        return tasks_path
-    return tasks_path
+    candidates = []
+    env_override = os.environ.get("TASKBOARD_TASKS_FILE")
+    if env_override:
+        candidates.append(os.path.abspath(env_override))
+    candidates.append(os.path.join(project_root, "docs", "tasks.json"))
+    candidates.append(os.path.join(os.getcwd(), "docs", "tasks.json"))
+
+    current = project_root
+    while True:
+        candidate = os.path.join(current, "docs", "tasks.json")
+        if candidate not in candidates:
+            candidates.append(candidate)
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        current = parent
+
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+
+    return os.path.join(project_root, "docs", "tasks.json")
 
 def load_data():
     file_path = get_tasks_file()
