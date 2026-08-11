@@ -40,7 +40,7 @@ class InstructionDecoderTest {
         // Rd = 5 (bits 25-21)
         // Rs = 10 (bits 20-16)
         // Immediate = 0x1234 (bits 15-0)
-        int encoded = (0x04 << 26) | (5 << 21) | (10 << 16) | 0x1234;
+        int encoded = (0x10 << 26) | (5 << 21) | (10 << 16) | 0x1234;
         word.set(encoded);
 
         decoder.decode(word, instruction);
