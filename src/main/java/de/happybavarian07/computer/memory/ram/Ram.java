@@ -59,7 +59,8 @@ public class Ram {
 
     public void readWord(Address address, Word destination) {
         int baseAddr = address.getAsInt();
-        if (baseAddr < 0 || baseAddr >= capacityBytes - 3) {
+        // Need 4 bytes for a Word: valid baseAddr is 0 .. capacityBytes-4
+        if (baseAddr < 0 || baseAddr > capacityBytes - 4) {
             throw new IndexOutOfBoundsException("Tried to access RAM outside address space: " + baseAddr);
         }
 
@@ -74,7 +75,8 @@ public class Ram {
 
     public void writeWord(Address address, Word source) {
         int baseAddr = address.getAsInt();
-        if (baseAddr < 0 || baseAddr >= capacityBytes - 3) {
+        // Need 4 bytes for a Word: valid baseAddr is 0 .. capacityBytes-4
+        if (baseAddr < 0 || baseAddr > capacityBytes - 4) {
             throw new IndexOutOfBoundsException("Tried to access RAM outside address space: " + baseAddr);
         }
         for (int k = 0; k < 4; k++) {

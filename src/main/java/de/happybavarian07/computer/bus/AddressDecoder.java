@@ -19,13 +19,19 @@ public class AddressDecoder {
     }
 
     public void registerDevice(Address startAddress, Address endAddress, BusDevice device) {
+        if (device == null) {
+            throw new BusConfigurationException("Cannot register null device for address range: " +
+                    startAddress.getAsHexaDecString() + " - " + endAddress.getAsHexaDecString());
+        }
+
         if (startAddress.getAsInt() > endAddress.getAsInt() || startAddress.getAsInt() < 0 || endAddress.getAsInt() > Architecture.MEMORY_SIZE_BYTES - 1)
             throw new BusConfigurationException("Device '" + device.getName() + "' tried to request invalid Address range from " +
                     startAddress.getAsHexaDecString() + " (" + startAddress.getAsInt() + ") to " + endAddress.getAsHexaDecString() + " (" + endAddress.getAsInt() + ").");
 
         BusDevice overlappingDevice = findDeviceFromAddress(startAddress, endAddress);
         if (overlappingDevice != null)
-            throw new BusConfigurationException("Address collision between '" + device.getName() + "' (NEW) and '" + overlappingDevice.getName() + "' (EXISTING)");
+            throw new BusConfigurationException("Address collision between '" + device.getName() + "' (NEW) and '" + overlappingDevice.getName() + "' (EXISTING) for ranges " +
+                    startAddress.getAsHexaDecString() + " - " + endAddress.getAsHexaDecString());
 
         deviceMappings.add(new DeviceMapping(startAddress.getAsInt(), endAddress.getAsInt(), device));
     }
@@ -59,7 +65,7 @@ public class AddressDecoder {
     }
 
     public List<DeviceMapping> getDeviceMappings() {
-        return deviceMappings;
+        return java.util.Collections.unmodifiableList(deviceMappings);
     }
 
     public record DeviceMapping(int startAddress, int endAddress, BusDevice device) {
