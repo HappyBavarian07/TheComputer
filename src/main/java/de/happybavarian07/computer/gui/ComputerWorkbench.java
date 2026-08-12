@@ -31,7 +31,6 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumnModel;
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.io.IOException;
@@ -44,24 +43,20 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ComputerWorkbench extends JFrame {
-    private static final List<String> DEFAULT_EXAMPLES = List.of(
-            "math-demo",
-            "loop-demo",
-            "stack-demo"
-    );
+    private static final List<String> DEFAULT_EXAMPLES = List.of("math-demo", "loop-demo", "stack-demo");
 
     private final Motherboard motherboard = new Motherboard();
     private final AssemblerCli assemblerCli = new AssemblerCli();
     private final AtomicBoolean runRequested = new AtomicBoolean(false);
-    private final JTextArea sourceEditor = new JTextArea();
+
+    private final JTextArea editorBuffer = new JTextArea();
+    private final JTextArea sourcePreview = new JTextArea();
     private final JTextArea stateArea = new JTextArea();
     private final JTextArea logArea = new JTextArea();
-    private final JTextArea memoryArea = new JTextArea();
     private final JSpinner stepSpinner = new JSpinner(new javax.swing.SpinnerNumberModel(1, 1, 1000, 1));
     private final JComboBox<String> exampleSelector = new JComboBox<>();
-    private final DefaultTableModel registerModel = new DefaultTableModel(
-            new Object[]{"Register", "Value", "Hex"}, 0
-    ) {
+
+    private final DefaultTableModel registerModel = new DefaultTableModel(new Object[]{"Register", "Value", "Hex"}, 0) {
         @Override
         public boolean isCellEditable(int row, int column) {
             return false;
@@ -69,10 +64,20 @@ public class ComputerWorkbench extends JFrame {
     };
     private final JTable registerTable = new JTable(registerModel);
 
+    private final DefaultTableModel memoryModel = new DefaultTableModel(new Object[]{"Addr", "Value", "Hex"}, 0) {
+        @Override
+        public boolean isCellEditable(int row, int column) {
+            return false;
+        }
+    };
+    private final JTable memoryTable = new JTable(memoryModel);
+    private final JSpinner memoryBaseSpinner = new JSpinner(new javax.swing.SpinnerNumberModel(0, 0, Architecture.MEMORY_SIZE_BYTES - 4, 4));
+    private final JSpinner memoryRowsSpinner = new JSpinner(new javax.swing.SpinnerNumberModel(64, 8, 1024, 8));
+
     public ComputerWorkbench() {
         setTitle("TheComputer Workbench");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1400, 900);
+        setSize(1400, 920);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(8, 8));
 
@@ -80,6 +85,9 @@ public class ComputerWorkbench extends JFrame {
         initToolbar();
         initMainView();
         initializeExamples();
+
+        editorBuffer.setText("load r1, 42\nload r2, 8\nadd r1, r2\nhalt\n");
+        syncSourcePreview();
         resetMachine();
         refreshState();
     }
@@ -99,16 +107,18 @@ public class ComputerWorkbench extends JFrame {
         JButton loadAsmButton = new JButton("Load .asm");
         JButton loadBinaryButton = new JButton("Load .bin");
         JButton assembleButton = new JButton("Assemble to RAM");
+        JButton openEditorButton = new JButton("Open Editor");
         JButton resetButton = new JButton("Reset");
         JButton stepButton = new JButton("Step");
         JButton stepManyButton = new JButton("Step N");
-        JButton runButton = new JButton("Run until halt");
+        JButton runButton = new JButton("Run");
         JButton stopButton = new JButton("Stop");
         JButton loadExampleButton = new JButton("Load example");
 
         loadAsmButton.addActionListener(e -> loadAssemblyFile());
         loadBinaryButton.addActionListener(e -> loadBinaryFile());
         assembleButton.addActionListener(e -> assembleCurrentProgram());
+        openEditorButton.addActionListener(e -> openEditorWindow());
         resetButton.addActionListener(e -> resetMachine());
         stepButton.addActionListener(e -> stepOnce());
         stepManyButton.addActionListener(e -> stepMany());
@@ -116,18 +126,24 @@ public class ComputerWorkbench extends JFrame {
         stopButton.addActionListener(e -> stopRun());
         loadExampleButton.addActionListener(e -> loadSelectedExample());
 
-        exampleSelector.setPrototypeDisplayValue("stack-demo");
         toolbar.add(loadAsmButton);
         toolbar.add(loadBinaryButton);
         toolbar.add(assembleButton);
+        toolbar.add(openEditorButton);
         toolbar.add(new JSeparator(SwingConstants.VERTICAL));
-        toolbar.add(resetButton);
-        toolbar.add(stepButton);
-        toolbar.add(stepSpinner);
-        toolbar.add(stepManyButton);
-        toolbar.add(runButton);
-        toolbar.add(stopButton);
+
+        JPanel controlGroup = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 6));
+        controlGroup.add(resetButton);
+        controlGroup.add(stepButton);
+        controlGroup.add(new JLabel("Step count:"));
+        controlGroup.add(stepSpinner);
+        controlGroup.add(stepManyButton);
+        controlGroup.add(runButton);
+        controlGroup.add(stopButton);
+        toolbar.add(controlGroup);
+
         toolbar.add(new JSeparator(SwingConstants.VERTICAL));
+        exampleSelector.setPrototypeDisplayValue("stack-demo");
         toolbar.add(exampleSelector);
         toolbar.add(loadExampleButton);
 
@@ -135,45 +151,38 @@ public class ComputerWorkbench extends JFrame {
     }
 
     private void initMainView() {
-        // Left: editor placeholder (opened in separate window), show a short status label
-        JPanel leftPanel = new JPanel(new BorderLayout(6,6));
-        leftPanel.setBorder(BorderFactory.createTitledBorder("Assembly source (open editor)"));
-        JTextArea editorPreview = new JTextArea();
-        editorPreview.setEditable(false);
-        editorPreview.setText("Use 'Open Editor' to edit assembly source.\n");
-        leftPanel.add(new JScrollPane(editorPreview), BorderLayout.CENTER);
+        sourcePreview.setEditable(false);
+        sourcePreview.setText("Use 'Open Editor' to edit assembly source.\n");
 
-        // Right: register + special registers + memory table + log
-        JPanel rightPanel = new JPanel(new BorderLayout(8,8));
+        JPanel leftPanel = new JPanel(new BorderLayout(6, 6));
+        leftPanel.setBorder(BorderFactory.createTitledBorder("Assembly source (buffer)"));
+        leftPanel.add(new JScrollPane(sourcePreview), BorderLayout.CENTER);
 
-        // Registers
+        JPanel rightPanel = new JPanel(new BorderLayout(8, 8));
+
         registerTable.setRowHeight(22);
         registerTable.setFillsViewportHeight(true);
-        JPanel regs = new JPanel(new BorderLayout());
-        regs.setBorder(BorderFactory.createTitledBorder("Registers"));
-        regs.add(new JScrollPane(registerTable), BorderLayout.CENTER);
+        JPanel registersPanel = new JPanel(new BorderLayout());
+        registersPanel.setBorder(BorderFactory.createTitledBorder("Registers"));
+        registersPanel.add(new JScrollPane(registerTable), BorderLayout.CENTER);
 
-        // Special registers
         stateArea.setEditable(false);
-        JPanel special = new JPanel(new BorderLayout());
-        special.setBorder(BorderFactory.createTitledBorder("Special registers"));
-        special.add(new JScrollPane(stateArea), BorderLayout.CENTER);
+        JPanel specialPanel = new JPanel(new BorderLayout());
+        specialPanel.setBorder(BorderFactory.createTitledBorder("Special registers"));
+        specialPanel.add(new JScrollPane(stateArea), BorderLayout.CENTER);
 
-        // Control panel that stacks registers and special
         JPanel topRight = new JPanel();
         topRight.setLayout(new BoxLayout(topRight, BoxLayout.Y_AXIS));
-        topRight.add(regs);
-        topRight.add(special);
+        topRight.add(registersPanel);
+        topRight.add(specialPanel);
 
-        // Memory table
         memoryTable.setFillsViewportHeight(true);
         memoryTable.setRowHeight(20);
-        TableColumnModel cols = memoryTable.getColumnModel();
-        // make address column smaller than value
-        if (cols.getColumnCount() >= 3) {
-            cols.getColumn(0).setPreferredWidth(70); // Addr
-            cols.getColumn(1).setPreferredWidth(160); // Value
-            cols.getColumn(2).setPreferredWidth(120); // Hex
+        TableColumnModel columns = memoryTable.getColumnModel();
+        if (columns.getColumnCount() >= 3) {
+            columns.getColumn(0).setPreferredWidth(70);
+            columns.getColumn(1).setPreferredWidth(160);
+            columns.getColumn(2).setPreferredWidth(120);
         }
 
         JPanel memoryPanel = new JPanel(new BorderLayout());
@@ -191,20 +200,18 @@ public class ComputerWorkbench extends JFrame {
         memoryPanel.add(memoryControls, BorderLayout.NORTH);
         memoryPanel.add(new JScrollPane(memoryTable), BorderLayout.CENTER);
 
-        // Log panel
         logArea.setEditable(false);
-        JPanel logsPanel = new JPanel(new BorderLayout());
-        logsPanel.setBorder(BorderFactory.createTitledBorder("Execution log"));
-        logsPanel.add(new JScrollPane(logArea), BorderLayout.CENTER);
+        JPanel logPanel = new JPanel(new BorderLayout());
+        logPanel.setBorder(BorderFactory.createTitledBorder("Execution log"));
+        logPanel.add(new JScrollPane(logArea), BorderLayout.CENTER);
 
-        // Layout assembly: left editor preview, right details stacked
         JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
         mainSplit.setResizeWeight(0.36);
 
-        JPanel rightComposite = new JPanel(new BorderLayout(8,8));
+        JPanel rightComposite = new JPanel(new BorderLayout(8, 8));
         rightComposite.add(topRight, BorderLayout.NORTH);
         rightComposite.add(memoryPanel, BorderLayout.CENTER);
-        rightComposite.add(logsPanel, BorderLayout.SOUTH);
+        rightComposite.add(logPanel, BorderLayout.SOUTH);
 
         mainSplit.setLeftComponent(leftPanel);
         mainSplit.setRightComponent(rightComposite);
@@ -224,13 +231,52 @@ public class ComputerWorkbench extends JFrame {
         exampleSelector.setSelectedIndex(0);
     }
 
+    private void syncSourcePreview() {
+        sourcePreview.setText(editorBuffer.getText());
+    }
+
+    private void openEditorWindow() {
+        JFrame editorFrame = new JFrame("Assembly Editor");
+        editorFrame.setSize(700, 700);
+        editorFrame.setLocationRelativeTo(this);
+
+        JTextArea editor = new JTextArea();
+        editor.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 14));
+        editor.setText(editorBuffer.getText().isBlank() ? "load r1, 42\nload r2, 8\nadd r1, r2\nhalt\n" : editorBuffer.getText());
+
+        JButton saveBtn = new JButton("Save to Workbench");
+        saveBtn.addActionListener(e -> {
+            editorBuffer.setText(editor.getText());
+            syncSourcePreview();
+            logArea.append("Editor: saved content to workbench buffer.\n");
+            editorFrame.dispose();
+        });
+
+        JButton assembleBtn = new JButton("Assemble & Load");
+        assembleBtn.addActionListener(e -> {
+            editorBuffer.setText(editor.getText());
+            syncSourcePreview();
+            assembleFromBuffer();
+            editorFrame.dispose();
+        });
+
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttons.add(saveBtn);
+        buttons.add(assembleBtn);
+
+        editorFrame.add(new JScrollPane(editor), BorderLayout.CENTER);
+        editorFrame.add(buttons, BorderLayout.SOUTH);
+        editorFrame.setVisible(true);
+    }
+
     private void loadAssemblyFile() {
         Path file = chooseFile("asm");
         if (file == null) {
             return;
         }
         try {
-            sourceEditor.setText(Files.readString(file, StandardCharsets.UTF_8));
+            editorBuffer.setText(Files.readString(file, StandardCharsets.UTF_8));
+            syncSourcePreview();
             logArea.append("Loaded assembly file: " + file + "\n");
         } catch (IOException ex) {
             showError("Could not read assembly file", ex);
@@ -261,7 +307,8 @@ public class ComputerWorkbench extends JFrame {
             return;
         }
         try {
-            sourceEditor.setText(Files.readString(Path.of(resource.toURI()), StandardCharsets.UTF_8));
+            editorBuffer.setText(Files.readString(Path.of(resource.toURI()), StandardCharsets.UTF_8));
+            syncSourcePreview();
             logArea.append("Loaded example: " + selected + "\n");
         } catch (IOException | URISyntaxException ex) {
             showError("Could not read example", ex);
@@ -269,12 +316,20 @@ public class ComputerWorkbench extends JFrame {
     }
 
     private void assembleCurrentProgram() {
-        String source = sourceEditor.getText();
+        String source = editorBuffer.getText();
         if (source == null || source.isBlank()) {
             logArea.append("No assembly source to assemble.\n");
             return;
         }
+        assembleFromBuffer();
+    }
 
+    private void assembleFromBuffer() {
+        String source = editorBuffer.getText();
+        if (source == null || source.isBlank()) {
+            logArea.append("No assembly source to assemble.\n");
+            return;
+        }
         try {
             Path inputFile = Files.createTempFile("computer-asm-", ".asm");
             Path outputFile = Files.createTempFile("computer-bin-", ".bin");
@@ -412,7 +467,7 @@ public class ComputerWorkbench extends JFrame {
         var pc = special.getPC();
         var sp = special.getSP();
         var ir = special.getIR();
-        var builder = new StringBuilder();
+        StringBuilder builder = new StringBuilder();
         builder.append("PC: ").append(pc.getAsInt()).append(" (0x").append(Integer.toHexString(pc.getAsInt()).toUpperCase()).append(")\n");
         builder.append("SP: ").append(sp.getAsInt()).append(" (0x").append(Integer.toHexString(sp.getAsInt()).toUpperCase()).append(")\n");
         builder.append("IR: ").append(ir.getAsInt()).append(" (0x").append(Integer.toHexString(ir.getAsInt() & 0xFFFF_FFFF).toUpperCase()).append(")\n");
@@ -423,21 +478,27 @@ public class ComputerWorkbench extends JFrame {
     }
 
     private void refreshMemoryView() {
-        StringBuilder builder = new StringBuilder();
-        builder.append(String.format("%-8s %-12s %-12s%n", "Addr", "Word", "Hex"));
-        for (int address = 0; address < 256; address += 4) {
+        memoryModel.setRowCount(0);
+        int base = (Integer) memoryBaseSpinner.getValue();
+        int rows = (Integer) memoryRowsSpinner.getValue();
+        base = (base / 4) * 4;
+        for (int i = 0; i < rows; i++) {
+            int address = base + i * 4;
+            if (address >= Architecture.MEMORY_SIZE_BYTES) {
+                break;
+            }
             Word word = new Word();
             try {
                 motherboard.getSystemBus().read(new Address(address), word);
             } catch (RuntimeException ex) {
                 word.set(0);
             }
-            builder.append(String.format("%04X     %-12d 0x%08X%n",
-                    address,
+            memoryModel.addRow(new Object[]{
+                    String.format("%04X", address),
                     word.getAsInt(),
-                    word.getAsInt() & 0xFFFF_FFFFL));
+                    "0x" + Integer.toHexString(word.getAsInt() & 0xFFFF_FFFF).toUpperCase()
+            });
         }
-        memoryArea.setText(builder.toString());
     }
 
     private Path chooseFile(String extension) {
