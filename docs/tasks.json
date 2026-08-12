@@ -185,7 +185,7 @@
     },
     {
       "id": "ASM-001",
-      "title": "Implement Assembler (Source → Machine)",
+      "title": "Implement Assembler (Source \u2192 Machine)",
       "module": "assembly",
       "status": "IN_PROGRESS",
       "priority": "HIGH",
@@ -193,13 +193,13 @@
       "dependencies": [
         "ISA-001"
       ],
-      "description": "Assembler pipeline: Lexer → Parser → Symbol resolution → Encoding → Output machine code.",
+      "description": "Assembler pipeline: Lexer \u2192 Parser \u2192 Symbol resolution \u2192 Encoding \u2192 Output machine code.",
       "acceptance_criteria": "1. Assemble simple programs to machine code.\n2. Error messages point to source line.\n3. Support labels and constants.",
       "notes": "Required for first programs."
     },
     {
       "id": "DIS-001",
-      "title": "Implement Disassembler (Machine → Assembly)",
+      "title": "Implement Disassembler (Machine \u2192 Assembly)",
       "module": "assembly",
       "status": "TODO",
       "priority": "MEDIUM",
@@ -256,7 +256,7 @@
     },
     {
       "id": "COMP-001",
-      "title": "Implement Compiler Pipeline (AST → IR → Codegen)",
+      "title": "Implement Compiler Pipeline (AST \u2192 IR \u2192 Codegen)",
       "module": "compiler",
       "status": "TODO",
       "priority": "HIGH",
@@ -313,7 +313,7 @@
     },
     {
       "id": "CG-001",
-      "title": "Implement Code Generation (IR → Assembly)",
+      "title": "Implement Code Generation (IR \u2192 Assembly)",
       "module": "compiler",
       "status": "TODO",
       "priority": "HIGH",
@@ -397,6 +397,19 @@
       "description": "Goal: rewrite compiler in the project language and bootstrap.",
       "acceptance_criteria": "1. Compiler can compile a subset of itself.\n2. Bootstrapping procedure documented.",
       "notes": "Long-term target."
+    },
+    {
+      "id": "ASM-002",
+      "title": "Implement assembly CLI (skeleton)",
+      "module": "assembly",
+      "priority": "MEDIUM",
+      "status": "TODO",
+      "description": "Create CLI entrypoint for assembling source files to binary images. Tasks: add CLI module, parse args (input, output), wire parser+resolver+encoder to produce output file, add basic unit tests for CLI argument parsing and dry-run mode.",
+      "phase": "Phase 14 - Assembly Language",
+      "tags": [
+        "ASSEMBLY"
+      ],
+      "dependencies": []
     }
   ]
 }

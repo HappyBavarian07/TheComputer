@@ -27,7 +27,8 @@ public class EncodingException extends RuntimeException {
     }
 
     private static String formatMessage(String filePath, int line, int column, String message) {
-        return String.format("%s:%d:%d: error: %s", filePath, line, column, message);
+        String detail = message == null || message.isBlank() ? "encoding failed" : message;
+        return String.format("%s:%d:%d: error: encoding failure: %s", filePath, line, column, detail);
     }
 
     public String getFilePath() {
