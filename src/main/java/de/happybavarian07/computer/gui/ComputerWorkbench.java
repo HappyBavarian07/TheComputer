@@ -134,35 +134,18 @@ public class ComputerWorkbench extends JFrame {
         JButton loadBinaryButton = new JButton("Load bin");
         JButton assembleButton = new JButton("Assemble");
         JButton openEditorButton = new JButton("Editor");
-        JButton resetButton = new JButton("Reset");
-        JButton stepButton = new JButton("Step");
-        JButton stepManyButton = new JButton("Step N");
-        JButton runButton = new JButton("Run");
-        JButton stopButton = new JButton("Stop");
         JButton loadExampleButton = new JButton("Load example");
 
         loadAsmButton.addActionListener(e -> loadAssemblyFile());
         loadBinaryButton.addActionListener(e -> loadBinaryFile());
         assembleButton.addActionListener(e -> assembleCurrentProgram());
         openEditorButton.addActionListener(e -> openEditorWindow());
-        resetButton.addActionListener(e -> resetMachine());
-        stepButton.addActionListener(e -> stepOnce());
-        stepManyButton.addActionListener(e -> stepMany());
-        runButton.addActionListener(e -> runUntilHalt());
-        stopButton.addActionListener(e -> stopRun());
         loadExampleButton.addActionListener(e -> loadSelectedExample());
 
         toolbar.add(loadAsmButton);
         toolbar.add(loadBinaryButton);
         toolbar.add(assembleButton);
         toolbar.add(openEditorButton);
-        toolbar.add(new JSeparator(SwingConstants.VERTICAL));
-        toolbar.add(resetButton);
-        toolbar.add(stepButton);
-        toolbar.add(stepSpinner);
-        toolbar.add(stepManyButton);
-        toolbar.add(runButton);
-        toolbar.add(stopButton);
         toolbar.add(new JSeparator(SwingConstants.VERTICAL));
         exampleSelector.setPrototypeDisplayValue("stack-demo");
         toolbar.add(exampleSelector);
@@ -179,28 +162,19 @@ public class ComputerWorkbench extends JFrame {
         JPanel controlsPanel = new JPanel(new BorderLayout(8, 8));
         controlsPanel.setBorder(BorderFactory.createTitledBorder("CPU controls"));
 
-        JPanel buttonGrid = new JPanel(new java.awt.GridLayout(3, 3, 8, 8));
+        JPanel buttonGrid = new JPanel(new java.awt.GridLayout(2, 3, 8, 8));
         buttonGrid.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-        JButton[] controlButtons = {
-                new JButton("Reset"),
-                new JButton("Step"),
-                new JButton("Step N"),
-                new JButton("Run"),
-                new JButton("Stop"),
-                new JButton("Load asm"),
-                new JButton("Load bin"),
-                new JButton("Assemble"),
-                new JButton("Editor")
-        };
-        controlButtons[0].addActionListener(e -> resetMachine());
-        controlButtons[1].addActionListener(e -> stepOnce());
-        controlButtons[2].addActionListener(e -> stepMany());
-        controlButtons[3].addActionListener(e -> runUntilHalt());
-        controlButtons[4].addActionListener(e -> stopRun());
-        controlButtons[5].addActionListener(e -> loadAssemblyFile());
-        controlButtons[6].addActionListener(e -> loadBinaryFile());
-        controlButtons[7].addActionListener(e -> assembleCurrentProgram());
-        controlButtons[8].addActionListener(e -> openEditorWindow());
+        JButton resetButton = new JButton("Reset");
+        JButton stepButton = new JButton("Step");
+        JButton stepManyButton = new JButton("Step N");
+        JButton runButton = new JButton("Run");
+        JButton stopButton = new JButton("Stop");
+        JButton[] controlButtons = {resetButton, stepButton, stepManyButton, runButton, stopButton};
+        resetButton.addActionListener(e -> resetMachine());
+        stepButton.addActionListener(e -> stepOnce());
+        stepManyButton.addActionListener(e -> stepMany());
+        runButton.addActionListener(e -> runUntilHalt());
+        stopButton.addActionListener(e -> stopRun());
         for (JButton button : controlButtons) {
             button.setPreferredSize(new Dimension(120, 34));
             buttonGrid.add(button);
