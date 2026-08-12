@@ -105,7 +105,7 @@ public final class AssemblerCli {
         return new ParsedCommand(inputFile, outputFile, dryRun, verbose, overwrite, help, error);
     }
 
-    private int handleCommandInput(String[] args) {
+    public int handleCommandInput(String[] args) {
         ParsedCommand cmd = parseArgs(args);
         File finalOutputFile = cmd.outputFile();
 
@@ -160,11 +160,11 @@ public final class AssemblerCli {
 
     private void printEncodedWords(List<EncodedWord> words) {
         System.out.println("Encoded words:");
-        System.out.printf("%-12s %-12s %-12s%n", "Address", "Word", "Hex");
+        System.out.printf("%-12s %-35s %-12s%n", "Address", "Word", "Hex");
         for (EncodedWord w : words) {
-            System.out.printf("%-12d %-12d 0x%08X%n",
+            System.out.printf("%-12d %-35s 0x%08X%n",
                     w.byteAddress(),
-                    w.rawWord(),
+                    Integer.toUnsignedString(w.rawWord(), 2),
                     Integer.toUnsignedLong(w.rawWord()));
         }
     }
@@ -190,14 +190,14 @@ public final class AssemblerCli {
 
     private void printResolvedDump(ResolvedProgram resolvedProgram) {
         System.out.println("Resolved statements:");
-        System.out.printf("%-8s %-16s %-20s%n", "Address", "Source", "Operands");
+        System.out.printf("%-8s %-20s %-20s%n", "Address", "Source", "Operands");
         for (var statement : resolvedProgram.statements()) {
             String sourceName = statement.sourceStatement().getClass().getSimpleName();
             String operands = statement.operands().stream()
                     .map(op -> op.text() + "=" + op.resolvedNumericValue())
                     .reduce((a, b) -> a + ", " + b)
                     .orElse("");
-            System.out.printf("%-8d %-16s %-20s%n",
+            System.out.printf("%-8d %-20s %-20s%n",
                     statement.address(),
                     sourceName,
                     operands);
