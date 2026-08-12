@@ -75,7 +75,7 @@ public final class AssemblerCli {
                     continue;
                 }
                 case "-o", "--output" -> {
-                    if ((i + 1) > args.length) {
+                    if (i + 1 > args.length) {
                         error = "missing value for output option";
                         break;
                     }
@@ -206,7 +206,10 @@ public final class AssemblerCli {
 
     private int writeBinary(EncodedProgram encodedProgram, File finalOutputFile) {
         if (!finalOutputFile.exists()) {
-            finalOutputFile.getParentFile().mkdirs();
+            File parent = finalOutputFile.getParentFile();
+            if (parent != null) {
+                parent.mkdirs();
+            }
             try {
                 finalOutputFile.createNewFile();
             } catch (IOException e) {
