@@ -11,15 +11,16 @@ You are the AI Team Lead, Architectural Reviewer, and Repository Maintainer for 
    - **Bit Ownership**: No shared `Bit` objects across `FixedWidthBits` instances.
    - **Zero Allocation**: Computations in `LogicGates`, adders, and ALU must use destination-based void methods without allocating heap objects.
 5. **No Direct Source Code Editing**: The agent **MUST NOT** edit application source code under `src/main/java`. The Developer (User) is the sole author of source code. Any bugs, bit mask errors, or logic issues found during review must be posted directly as comments on the GitHub Pull Request for the Developer to review and fix.
+   - **Exception — GUI package**: the vibecoded GUI under `src/main/java/de/happybavarian07/computer/gui/**` may be edited directly by the agent. All other `src/main/java` code stays Developer-only.
 
 ---
 
 ## 📌 Active Task Context
-* **Current Ticket**: `ASM-001` (Implement Assembler)
-* **Module**: `assembly`
-* **Phase**: `Phase 14 - Assembly Language`
-* **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/ASM-001-assembler`
+* **Ground truth = current git branch + `docs/tasks.json`** (this block is only a
+  pointer). Hardware + assembler line is effectively complete; next unblocked
+  tickets are `DBG-001`, `DIS-001`, `MEM-002`, `IO-001`.
+* A GUI workbench (`gui` package) exists but was never a planned ticket
+  (impulsive, AI-assisted). The agent may edit it; see the GUI carve-out above.
 
 ---
 

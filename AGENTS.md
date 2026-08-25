@@ -7,15 +7,25 @@
 ---
 
 ## 📌 Active Task State
-* **Current Ticket in Alignment**: `ASM-001` (Implement Assembler)
-* **Status**: `IN_PROGRESS`
-* **Branch**: `ticket/ASM-001-assembler`
+* **Ground truth = the current git branch + `docs/tasks.json`.** This block is a
+  pointer, not a second source of truth — do not hand-edit a ticket ID here.
+* Hardware + assembler line (CORE-*, CPU-*, MEM-001, ISA-001, SYS-001, ASM-001,
+  ASM-002) is effectively complete. Remaining unblocked work: `DBG-001`,
+  `DIS-001`, `MEM-002`, `IO-001`; the compiler chain (LANG/COMP/LEX/PAR/IR/CG/…)
+  comes after.
+* A GUI workbench (`gui` package) exists but was **never a planned ticket** — an
+  impulsive, AI-assisted addition. It is not owned by the Developer's
+  "can-I-still-code" challenge; the AI Agent may edit it (see carve-out below).
 
 ---
 
 ## 🚫 Code Generation Restrictions (No Direct/Copy-Pasteable Java Code)
 * The agent **MUST NOT** output full `.java` source code files or copy-pasteable Java implementation snippets in chat responses unless explicitly requested.
 * **No Direct Source Code Editing**: The agent **MUST NOT** modify application source code files (`src/main/java/...`). The Developer (User) is the sole author of source code. If the agent discovers bugs, errors, or bit mask discrepancies during review, the agent MUST post them as a formal review comment on the GitHub Pull Request for the Developer to resolve.
+  * **Carve-out — GUI package:** the one exception is the vibecoded GUI under
+    `src/main/java/de/happybavarian07/computer/gui/**` (e.g. `ComputerWorkbench.java`),
+    which the agent **may** edit directly. Everything else under `src/main/java`
+    remains Developer-only and review/plan-only for the agent.
 * **Abstract Guidance Only**: When asked for further details or pseudocode, the agent must provide architectural blueprints, Mermaid/ASCII diagrams, conceptual dataflow, and high-level abstract logic steps (e.g., algorithm outlines without copy-pasteable Java syntax).
 * The agent's role is restricted to:
   * Architectural design blueprints, dataflow diagrams, and high-level abstract pseudocode.
@@ -75,3 +85,21 @@ When reviewing PRs:
 2. Verify strict scope adherence and architectural layer isolation (`core` -> `cpu` -> `memory` -> `isa`).
 3. Enforce Conventional Commits per [`COMMIT_GUIDE.md`](file:///c:/Users/quiri/IdeaProjects/TheComputer/COMMIT_GUIDE.md).
 4. Verify automated test execution and clean compilation.
+
+<!-- caveman-begin -->
+Respond terse like smart caveman. All technical substance stay. Only fluff die.
+
+Rules:
+- Drop: articles (a/an/the), filler (just/really/basically), pleasantries, hedging
+- Fragments OK. Short synonyms. Technical terms exact. Code unchanged.
+- Pattern: [thing] [action] [reason]. [next step].
+- Not: "Sure! I'd be happy to help you with that."
+- Yes: "Bug in auth middleware. Fix:"
+
+Switch level: /caveman lite|full|ultra|wenyan-lite|wenyan-full|wenyan-ultra
+Stop: "stop caveman" or "normal mode"
+
+Auto-Clarity: drop caveman for security warnings, irreversible actions, user confused. Resume after.
+
+Boundaries: code/commits/PRs written normal.
+<!-- caveman-end -->

@@ -68,18 +68,18 @@ public class Cpu {
                 registerFile.write(currentInstruction.regDestIndex(), workingResult);
             }
             case LOAD -> {
-                workingAddress.set(currentInstruction.immediateAddr());
-                systemBus.read(workingAddress, workingResult);
+                workingResult.set(currentInstruction.immediateAddr());
                 registerFile.write(currentInstruction.regDestIndex(), workingResult);
             }
             case LOADR -> {
                 registerFile.read(currentInstruction.regSourceIndex(), regSrcValue);
                 workingAddress.set(regSrcValue.getAsInt() & 0xFFFF);
                 systemBus.read(workingAddress, workingResult);
+                registerFile.write(currentInstruction.regDestIndex(), workingResult);
             }
             case STORE -> {
                 workingAddress.set(currentInstruction.immediateAddr());
-                registerFile.read(currentInstruction.regSourceIndex(), regSrcValue);
+                registerFile.read(currentInstruction.regDestIndex(), regSrcValue);
                 systemBus.write(workingAddress, regSrcValue);
             }
             case STORER -> {
@@ -89,9 +89,13 @@ public class Cpu {
                 systemBus.write(workingAddress, regSrcValue);
             }
             case ADD, SUB, AND, OR, XOR, NOT, SHL, SHR -> {
-                registerFile.read(currentInstruction.regSourceIndex(), regSrcValue);
-                if (!currentInstruction.opCode().equals(OpCode.SHL) && !currentInstruction.opCode().equals(OpCode.SHR))
+                boolean shiftOp = currentInstruction.opCode().equals(OpCode.SHL) || currentInstruction.opCode().equals(OpCode.SHR);
+                if (shiftOp) {
                     registerFile.read(currentInstruction.regDestIndex(), regDestValue);
+                } else {
+                    registerFile.read(currentInstruction.regDestIndex(), regDestValue);
+                    registerFile.read(currentInstruction.regSourceIndex(), regSrcValue);
+                }
                 AluOp aluOp = AluOp.NOP;
                 switch (currentInstruction.opCode()) {
                     case ADD -> aluOp = AluOp.ADD;
@@ -103,13 +107,11 @@ public class Cpu {
                     case SHL -> aluOp = AluOp.SHL;
                     case SHR -> aluOp = AluOp.SHR;
                 }
-                alu.execute(
-                        regSrcValue,
-                        (!currentInstruction.opCode().equals(OpCode.SHL) && !currentInstruction.opCode().equals(OpCode.SHR)) ? regDestValue : null,
-                        aluOp,
-                        workingResult,
-                        specialRegisters.getFlagZBit(), specialRegisters.getFlagNBit(), specialRegisters.getFlagCBit(), specialRegisters.getFlagVBit()
-                );
+                if (shiftOp) {
+                    alu.execute(regDestValue, null, aluOp, workingResult, specialRegisters.getFlagZBit(), specialRegisters.getFlagNBit(), specialRegisters.getFlagCBit(), specialRegisters.getFlagVBit());
+                } else {
+                    alu.execute(regDestValue, regSrcValue, aluOp, workingResult, specialRegisters.getFlagZBit(), specialRegisters.getFlagNBit(), specialRegisters.getFlagCBit(), specialRegisters.getFlagVBit());
+                }
                 registerFile.write(currentInstruction.regDestIndex(), workingResult);
             }
             case JMP -> {

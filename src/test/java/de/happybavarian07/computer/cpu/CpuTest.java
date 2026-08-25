@@ -51,11 +51,7 @@ class CpuTest {
 
     @Test
     void testRunProgram() {
-        addressBuffer.set(0x0100);
-        wordBuffer.set(0x42);
-        cpu.getSystemBus().write(addressBuffer, wordBuffer);
-
-        writeInstruction(0x0000, OpCode.LOAD, 1, 0, 0x0100);
+        writeInstruction(0x0000, OpCode.LOAD, 1, 0, 0x42);
         writeInstruction(0x0004, OpCode.HALT, 0, 0, 0);
 
         cpu.run();
@@ -66,17 +62,29 @@ class CpuTest {
     }
 
     @Test
+    void testImmediateLoadAndStoreProgram() {
+        writeInstruction(0x0000, OpCode.LOAD, 1, 0, 42);
+        writeInstruction(0x0004, OpCode.LOAD, 2, 0, 8);
+        writeInstruction(0x0008, OpCode.ADD, 1, 2, 0);
+        writeInstruction(0x000C, OpCode.STORE, 2, 0, 10);
+        writeInstruction(0x0010, OpCode.HALT, 0, 0, 0);
+
+        cpu.run();
+
+        assertTrue(cpu.isHalted());
+        cpu.getRegisterFile().read(1, wordBuffer);
+        assertEquals(50, wordBuffer.getAsInt());
+
+        addressBuffer.set(10);
+        wordBuffer.set(0);
+        cpu.getSystemBus().read(addressBuffer, wordBuffer);
+        assertEquals(8, wordBuffer.getAsInt());
+    }
+
+    @Test
     void testAddOperation() {
-        addressBuffer.set(0x0100);
-        wordBuffer.set(10);
-        cpu.getSystemBus().write(addressBuffer, wordBuffer);
-
-        addressBuffer.set(0x0104);
-        wordBuffer.set(20);
-        cpu.getSystemBus().write(addressBuffer, wordBuffer);
-
-        writeInstruction(0x0000, OpCode.LOAD, 1, 0, 0x0100);
-        writeInstruction(0x0004, OpCode.LOAD, 2, 0, 0x0104);
+        writeInstruction(0x0000, OpCode.LOAD, 1, 0, 10);
+        writeInstruction(0x0004, OpCode.LOAD, 2, 0, 20);
         writeInstruction(0x0008, OpCode.ADD, 1, 2, 0);
         writeInstruction(0x000C, OpCode.HALT, 0, 0, 0);
 
@@ -85,6 +93,20 @@ class CpuTest {
         assertTrue(cpu.isHalted());
         cpu.getRegisterFile().read(1, wordBuffer);
         assertEquals(30, wordBuffer.getAsInt());
+    }
+
+    @Test
+    void testSubtractOperation() {
+        writeInstruction(0x0000, OpCode.LOAD, 1, 0, 5);
+        writeInstruction(0x0004, OpCode.LOAD, 2, 0, 1);
+        writeInstruction(0x0008, OpCode.SUB, 1, 2, 0);
+        writeInstruction(0x000C, OpCode.HALT, 0, 0, 0);
+
+        cpu.run();
+
+        assertTrue(cpu.isHalted());
+        cpu.getRegisterFile().read(1, wordBuffer);
+        assertEquals(4, wordBuffer.getAsInt());
     }
 
     @Test
@@ -101,12 +123,7 @@ class CpuTest {
 
     @Test
     void testPushAndPop() {
-        // Load 0xABCD into R1, PUSH R1, POP into R2
-        addressBuffer.set(0x0100);
-        wordBuffer.set(0xABCD);
-        cpu.getSystemBus().write(addressBuffer, wordBuffer);
-
-        writeInstruction(0x0000, OpCode.LOAD, 1, 0, 0x0100);
+        writeInstruction(0x0000, OpCode.LOAD, 1, 0, 0xABCD);
         writeInstruction(0x0004, OpCode.PUSH, 0, 1, 0);
         writeInstruction(0x0008, OpCode.POP, 2, 0, 0);
         writeInstruction(0x000C, OpCode.HALT, 0, 0, 0);

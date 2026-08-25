@@ -34,11 +34,7 @@ class MotherboardTest {
 
     @Test
     void testMotherboardPowerOnAndRun() {
-        addressBuffer.set(0x0100);
-        wordBuffer.set(0x99);
-        motherboard.getCpu().getSystemBus().write(addressBuffer, wordBuffer);
-
-        writeInstruction(0x0000, OpCode.LOAD, 1, 0, 0x0100);
+        writeInstruction(0x0000, OpCode.LOAD, 1, 0, 0x99);
         writeInstruction(0x0004, OpCode.HALT, 0, 0, 0);
 
         motherboard.runSystem();

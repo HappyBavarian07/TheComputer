@@ -97,16 +97,32 @@ def handle_request(request):
             },
             {
                 "name": "create_task",
-                "description": "Create a new project task ticket.",
+                "description": "Create a new project task ticket. Supports the alignment blueprint schema.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "task_id": {"type": "string"},
                         "title": {"type": "string"},
-                        "module": {"type": "string"},
+                        "module": {"type": "string", "description": "core|cpu|memory|isa|system|assembly|debugger|io|language|compiler|runtime|optimizer|os"},
                         "priority": {"type": "string", "enum": ["HIGH", "MEDIUM", "LOW"]},
+                        "status": {"type": "string", "enum": ["TODO", "IN_PROGRESS", "DONE"]},
                         "description": {"type": "string"},
-                        "phase": {"type": "string"}
+                        "acceptance_criteria": {"type": "string"},
+                        "phase": {"type": "string"},
+                        "notes": {"type": "string"},
+                        "dependencies": {"type": "array", "items": {"type": "string"}},
+                        "blueprint": {
+                            "type": "object",
+                            "description": "Alignment blueprint mirroring the alignment protocol.",
+                            "properties": {
+                                "goal": {"type": "string"},
+                                "scope_in": {"type": "array", "items": {"type": "string"}},
+                                "scope_out": {"type": "array", "items": {"type": "string"}},
+                                "topology": {"type": "string"},
+                                "steps": {"type": "array", "items": {"type": "string"}},
+                                "hazards": {"type": "array", "items": {"type": "string"}}
+                            }
+                        }
                     },
                     "required": ["task_id", "title", "module"]
                 }
@@ -121,6 +137,18 @@ def handle_request(request):
                         "status": {"type": "string", "enum": ["TODO", "IN_PROGRESS", "DONE"]}
                     },
                     "required": ["task_id", "status"]
+                }
+            },
+            {
+                "name": "update_task",
+                "description": "Update any fields of an existing task (title, module, priority, status, phase, description, acceptance_criteria, notes, dependencies, blueprint). Only provided fields are changed; others are preserved.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "task_id": {"type": "string"},
+                        "fields": {"type": "object", "description": "Partial task object; keys present are merged over the existing task."}
+                    },
+                    "required": ["task_id", "fields"]
                 }
             },
             {
@@ -173,20 +201,37 @@ def handle_request(request):
             return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": f"Task {tid} not found."}], "isError": True}}
 
         elif name == "create_task":
+            module = args.get("module", "core")
             new_task = {
                 "id": args.get("task_id", f"TASK-{len(tasks)+1:03d}"),
                 "title": args.get("title"),
-                "module": args.get("module", "server"),
+                "module": module,
                 "priority": args.get("priority", "HIGH"),
-                "status": "TODO",
+                "status": args.get("status", "TODO"),
                 "description": args.get("description", ""),
+                "acceptance_criteria": args.get("acceptance_criteria", ""),
                 "phase": args.get("phase", "General"),
-                "tags": [args.get("module", "SERVER").upper()],
+                "notes": args.get("notes", ""),
+                "tags": [module.upper()],
                 "dependencies": args.get("dependencies", [])
             }
+            if args.get("blueprint"):
+                new_task["blueprint"] = args.get("blueprint")
             tasks.append(new_task)
             save_data(data)
             return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": f"Task {new_task['id']} created successfully."}]}}
+
+        elif name == "update_task":
+            tid = args.get("task_id")
+            fields = args.get("fields", {}) or {}
+            for t in tasks:
+                if t.get("id") == tid:
+                    t.update(fields)
+                    if "module" in fields:
+                        t["tags"] = [str(fields["module"]).upper()]
+                    save_data(data)
+                    return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": f"Task {tid} updated ({', '.join(fields.keys())})."}]}}
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": f"Task {tid} not found."}], "isError": True}}
 
         elif name == "update_task_status":
             tid = args.get("task_id")
