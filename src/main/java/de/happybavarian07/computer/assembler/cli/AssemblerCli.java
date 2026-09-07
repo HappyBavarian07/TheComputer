@@ -225,7 +225,7 @@ public final class AssemblerCli {
         int maxAddress = 0;
 
         for (EncodedWord word : words) {
-            maxAddress = Math.max(maxAddress, word.byteAddress() + 4);
+            maxAddress = Math.max(maxAddress, word.byteAddress() + Architecture.INSTRUCTION_BYTES);
         }
 
         try {
@@ -246,7 +246,7 @@ public final class AssemblerCli {
                 } else {
                     byteBuffer.write(new byte[]{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
                 }
-                currentAddress += 4;
+                currentAddress += Architecture.INSTRUCTION_BYTES;
             }
             byteBuffer.writeTo(Files.newOutputStream(finalOutputFile.toPath()));
         } catch (IOException e) {
