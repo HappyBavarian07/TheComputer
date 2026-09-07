@@ -183,4 +183,27 @@ class AluTest {
         assertEquals(c, flagC.getAsBool(), "C-Flag is wrong.");
         assertEquals(v, flagV.getAsBool(), "V-Flag is wrong.");
     }
+
+    @Test
+    void testAluThroughputBenchmark() {
+        inA.set(0x0123456789ABCDEFL);
+        inB.set(0x1111111111111111L);
+
+        // Warm up
+        for (int i = 0; i < 50_000; i++) {
+            alu.execute(inA, inB, AluOp.ADD, outResult, flagZ, flagN, flagC, flagV);
+        }
+
+        long count = 1_000_000;
+        long start = System.nanoTime();
+        for (long i = 0; i < count; i++) {
+            alu.execute(inA, inB, AluOp.ADD, outResult, flagZ, flagN, flagC, flagV);
+        }
+        long elapsedNanos = System.nanoTime() - start;
+        double opsPerSec = count / (elapsedNanos / 1_000_000_000.0);
+        double megaOps = opsPerSec / 1_000_000.0;
+
+        System.out.printf("[BENCHMARK] 64-Bit ALU Adder Throughput: %,.0f ops/sec (%.2f MOps/sec)%n", opsPerSec, megaOps);
+        assertTrue(opsPerSec > 0);
+    }
 }

@@ -1,72 +1,54 @@
-; RAM-heavy multiplication demo
-; Factors are stored in memory, read back through LOADR, and the
-; products are written to a separate result area.
+; 64-Bit RAM-heavy multiplication demo
+; Factors stored in memory, read through LOADR, and products written to result area.
 
-load r1, 3
-store 256, r1        ; 3
-load r1, 4
-store 260, r1        ; 4
-load r1, 5
-store 264, r1        ; 5
-load r1, 6
-store 268, r1        ; 6
-load r1, 7
-store 272, r1        ; 7
-load r1, 8
-store 276, r1        ; 8
-load r1, 9
-store 280, r1        ; 9
-load r1, 2
-store 284, r1        ; 2
+movi r1, 3
+store 256, r1        ; factor 1 = 3
+movi r1, 4
+store 264, r1        ; factor 2 = 4
+movi r1, 5
+store 272, r1        ; factor 3 = 5
+movi r1, 6
+store 280, r1        ; factor 4 = 6
+movi r1, 7
+store 288, r1        ; factor 5 = 7
+movi r1, 8
+store 296, r1        ; factor 6 = 8
+movi r1, 9
+store 304, r1        ; factor 7 = 9
+movi r1, 2
+store 312, r1        ; factor 8 = 2
 
-load r5, 1           ; decrement value for the loops
+; 1. Compute 3 * 4 via hardware MUL
+movi r7, 256
+loadr r1, r7         ; r1 = 3
+movi r7, 264
+loadr r2, r7         ; r2 = 4
+mul r3, r1, r2       ; r3 = 3 * 4 = 12
+store 512, r3
 
-load r7, 256
-loadr r1, r7         ; multiplicand = 3
-load r7, 260
-loadr r2, r7         ; multiplier = 4
-load r3, 0
-mov r4, r2
-mul_34:
-add r3, r1
-sub r4, r5
-jnz mul_34
-store 512, r3        ; 3 x 4 = 12
+; 2. Compute 5 * 6 via hardware MUL
+movi r7, 272
+loadr r1, r7         ; r1 = 5
+movi r7, 280
+loadr r2, r7         ; r2 = 6
+mul r3, r1, r2       ; r3 = 5 * 6 = 30
+store 520, r3
 
-load r7, 264
-loadr r1, r7         ; multiplicand = 5
-load r7, 268
-loadr r2, r7         ; multiplier = 6
-load r3, 0
-mov r4, r2
-mul_56:
-add r3, r1
-sub r4, r5
-jnz mul_56
-store 516, r3        ; 5 x 6 = 30
+; 3. Compute 7 * 8 via hardware MUL
+movi r7, 288
+loadr r1, r7         ; r1 = 7
+movi r7, 296
+loadr r2, r7         ; r2 = 8
+mul r3, r1, r2       ; r3 = 7 * 8 = 56
+store 528, r3
 
-load r7, 272
-loadr r1, r7         ; multiplicand = 7
-load r7, 276
-loadr r2, r7         ; multiplier = 8
-load r3, 0
-mov r4, r2
-mul_78:
-add r3, r1
-sub r4, r5
-jnz mul_78
-store 520, r3        ; 7 x 8 = 56
-
-load r7, 280
-loadr r1, r7         ; multiplicand = 9
-load r7, 284
-loadr r2, r7         ; multiplier = 2
-load r3, 0
-mov r4, r2
-mul_92:
-add r3, r1
-sub r4, r5
-jnz mul_92
-store 524, r3        ; 9 x 2 = 18
+; 4. Compute 9 * 2 via hardware MUL
+movi r7, 304
+loadr r1, r7         ; r1 = 9
+movi r7, 312
+loadr r2, r7         ; r2 = 2
+mul r3, r1, r2       ; r3 = 9 * 2 = 18
+store 536, r3
 
 halt
+

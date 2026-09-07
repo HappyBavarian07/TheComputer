@@ -157,11 +157,11 @@ public class ComputerWorkbench extends JFrame {
     };
     private final JTable memoryTable = new JTable(memoryModel);
     private boolean memoryRefreshing;
-    private final JSpinner memoryBaseSpinner = new JSpinner(new javax.swing.SpinnerNumberModel(0, 0, Architecture.MEMORY_SIZE_BYTES - 4, 4));
+    private final JSpinner memoryBaseSpinner = new JSpinner(new javax.swing.SpinnerNumberModel(0, 0, Architecture.MEMORY_SIZE_BYTES - Architecture.INSTRUCTION_BYTES, Architecture.INSTRUCTION_BYTES));
     private final JSpinner memoryRowsSpinner = new JSpinner(new javax.swing.SpinnerNumberModel(64, 4, 256, 4));
     private final JTextField memoryJumpField = new JTextField(10);
     private final JTextField memoryFindField = new JTextField(10);
-    private final JTextField watchField = new JTextField("r0, r1, sp, 0x0000, 0x0004", 28);
+    private final JTextField watchField = new JTextField("r0, r1, sp, 0x0000, 0x0008", 28);
     private final JTextArea traceArea = new JTextArea(7, 40);
     private final JTextArea sourceGutter = new JTextArea();
     private final Map<Integer, SourceSpan> sourceSpanByAddress = new HashMap<>();
@@ -214,7 +214,7 @@ public class ComputerWorkbench extends JFrame {
         initMainView();
         initializeExamples();
 
-        sourceEditor.setText("load r1, 42\nload r2, 8\nadd r1, r2\nhalt\n");
+        sourceEditor.setText("movi r1, 42\nmovi r2, 8\nadd r3, r1, r2\nhalt\n");
         logArea.setText("Machine reset\n");
         resetMachine();
         refreshState();
@@ -581,7 +581,7 @@ public class ComputerWorkbench extends JFrame {
 
     private void stepOnce() {
         int pcBefore = motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
-        int rawBefore = readMemoryWord(pcBefore);
+        long rawBefore = readMemoryWord(pcBefore);
         try {
             motherboard.stepSystem();
             logArea.append("Step complete.\n");
@@ -605,7 +605,7 @@ public class ComputerWorkbench extends JFrame {
                 break;
             }
             int pcBefore = motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
-            int rawBefore = readMemoryWord(pcBefore);
+            long rawBefore = readMemoryWord(pcBefore);
             try {
                 motherboard.stepSystem();
                 recordTrace("step", pcBefore, rawBefore, motherboard.getCpu().getSpecialRegisters().getPC().getAsInt());
@@ -639,7 +639,7 @@ public class ComputerWorkbench extends JFrame {
             }
             int batch = (Integer) speedSpinner.getValue();
             int pcBefore = motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
-            int rawBefore = readMemoryWord(pcBefore);
+            long rawBefore = readMemoryWord(pcBefore);
             int executed = 0;
             String error = null;
             try {
@@ -691,14 +691,21 @@ public class ComputerWorkbench extends JFrame {
      * first if the live program has already run past its start.
      */
     private void benchmarkCore() {
-        final int[] image = new int[Architecture.MEMORY_FREE_END / 4];
+        final int wordCount = Math.min(1024, Architecture.MEMORY_FREE_END / Architecture.INSTRUCTION_BYTES);
+        final long[] image = new long[wordCount];
         for (int i = 0; i < image.length; i++) {
-            image[i] = readMemoryWord(i * 4);
+            Word w = new Word();
+            try {
+                motherboard.getSystemBus().readWord(new Address(i * Architecture.INSTRUCTION_BYTES), w);
+                image[i] = w.getAsLong();
+            } catch (Exception ex) {
+                image[i] = 0;
+            }
         }
         coreClockLabel.setText("Core: benchmarking...");
         Thread worker = new Thread(() -> {
             final int stepCap = 5_000_000;
-            final int startSp = 0xEFFF;
+            final int startSp = Architecture.STACK_BASE_ADDRESS;
             Motherboard bench = new Motherboard();
             for (int w = 0; w < 3; w++) {
                 runProgramOnce(bench, image, startSp, stepCap);
@@ -725,7 +732,7 @@ public class ComputerWorkbench extends JFrame {
         worker.start();
     }
 
-    private long runProgramOnce(Motherboard bench, int[] image, int startSp, int cap) {
+    private long runProgramOnce(Motherboard bench, long[] image, int startSp, int cap) {
         bench.reset();
         for (int i = 0; i < image.length; i++) {
             bench.getSystemBus().writeWord(new Address(i * Architecture.INSTRUCTION_BYTES), new Word(image[i]));
@@ -758,16 +765,16 @@ public class ComputerWorkbench extends JFrame {
         sourceSpanByAddress.clear();
         byte[] binary = Files.readAllBytes(file);
 
-        for (int offset = 0; offset < binary.length; offset += 4) {
-            int raw = 0;
-            for (int byteIndex = 0; byteIndex < 4 && offset + byteIndex < binary.length; byteIndex++) {
-                raw |= (binary[offset + byteIndex] & 0xFF) << (byteIndex * 8);
+        for (int offset = 0; offset < binary.length; offset += Architecture.INSTRUCTION_BYTES) {
+            long raw = 0;
+            for (int byteIndex = 0; byteIndex < Architecture.INSTRUCTION_BYTES && offset + byteIndex < binary.length; byteIndex++) {
+                raw |= ((long) (binary[offset + byteIndex] & 0xFF)) << (byteIndex * 8);
             }
             motherboard.getSystemBus().writeWord(new Address(offset), new Word(raw));
         }
 
         motherboard.getCpu().getSpecialRegisters().getPC().set(0);
-        motherboard.getCpu().getSpecialRegisters().getSP().set(0xEFFF);
+        motherboard.getCpu().getSpecialRegisters().getSP().set(Architecture.STACK_BASE_ADDRESS);
         refreshState();
     }
 
@@ -788,8 +795,8 @@ public class ComputerWorkbench extends JFrame {
             registerFile.read(i, value);
             registerModel.addRow(new Object[]{
                     "R" + i,
-                    value.getAsInt(),
-                    "0x" + Integer.toHexString(value.getAsInt()).toUpperCase()
+                    value.getAsLong(),
+                    "0x" + Long.toHexString(value.getAsLong()).toUpperCase()
             });
         }
     }
@@ -801,7 +808,7 @@ public class ComputerWorkbench extends JFrame {
         var ir = special.getIR();
         pcField.setText(formatRegisterValue(pc.getAsInt()));
         spField.setText(formatRegisterValue(sp.getAsInt()));
-        irField.setText(formatRegisterValue(ir.getAsInt()));
+        irField.setText(formatRegisterValue(ir.getAsLong()));
         updateFlag(flagZ, special.isZero());
         updateFlag(flagN, special.isNegative());
         updateFlag(flagC, special.isCarry());
@@ -812,21 +819,21 @@ public class ComputerWorkbench extends JFrame {
     private void refreshDisassemblyView() {
         disassemblyModel.setRowCount(0);
         int pc = motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
-        int base = Math.max(0, pc - 16);
-        base = (base / 4) * 4;
+        int base = Math.max(0, pc - (Architecture.INSTRUCTION_BYTES * 4));
+        base = (base / Architecture.INSTRUCTION_BYTES) * Architecture.INSTRUCTION_BYTES;
         int rows = 12;
         int selectedRow = -1;
 
         for (int i = 0; i < rows; i++) {
-            int address = base + i * 4;
+            int address = base + i * Architecture.INSTRUCTION_BYTES;
             if (address >= Architecture.MEMORY_SIZE_BYTES) {
                 break;
             }
-            int raw = readMemoryWord(address);
+            long raw = readMemoryWord(address);
             Instruction instruction = decodeInstruction(raw);
             disassemblyModel.addRow(new Object[]{
                     String.format("0x%04X", address),
-                    String.format("0x%08X", raw),
+                    String.format("0x%016X", raw),
                     formatInstruction(instruction)
             });
             if (address == pc) {
@@ -847,11 +854,11 @@ public class ComputerWorkbench extends JFrame {
                 continue;
             }
             String normalized = token.trim();
-            Integer value = resolveWatchValue(normalized);
+            Long value = resolveWatchValue(normalized);
             watchModel.addRow(new Object[]{
                     normalized,
-                    value == null ? "invalid" : Integer.toUnsignedString(value),
-                    value == null ? "invalid" : String.format("0x%08X", value)
+                    value == null ? "invalid" : Long.toUnsignedString(value),
+                    value == null ? "invalid" : String.format("0x%016X", value)
             });
         }
     }
@@ -912,8 +919,8 @@ public class ComputerWorkbench extends JFrame {
     private void refreshMemoryView() {
         int base = (Integer) memoryBaseSpinner.getValue();
         int rows = (Integer) memoryRowsSpinner.getValue();
-        base = (base / 4) * 4;
-        int maxAddresses = Math.max(0, Math.min(rows, (Architecture.MEMORY_SIZE_BYTES - base) / 4));
+        base = (base / Architecture.INSTRUCTION_BYTES) * Architecture.INSTRUCTION_BYTES;
+        int maxAddresses = Math.max(0, Math.min(rows, (Architecture.MEMORY_SIZE_BYTES - base) / Architecture.INSTRUCTION_BYTES));
 
         memoryRefreshing = true;
         try {
@@ -924,11 +931,11 @@ public class ComputerWorkbench extends JFrame {
                 }
             }
             for (int i = 0; i < maxAddresses; i++) {
-                int address = base + i * 4;
-                int value = readMemoryWord(address);
+                int address = base + i * Architecture.INSTRUCTION_BYTES;
+                long value = readMemoryWord(address);
                 memoryModel.setValueAt(String.format("0x%04X", address), i, 0);
-                memoryModel.setValueAt(Integer.toUnsignedString(value), i, 1);
-                memoryModel.setValueAt("0x" + Integer.toHexString(value).toUpperCase(), i, 2);
+                memoryModel.setValueAt(Long.toUnsignedString(value), i, 1);
+                memoryModel.setValueAt("0x" + Long.toHexString(value).toUpperCase(), i, 2);
             }
         } finally {
             memoryRefreshing = false;
@@ -936,18 +943,18 @@ public class ComputerWorkbench extends JFrame {
     }
 
     private void onMemoryCellEdited(int row) {
-        int base = ((Integer) memoryBaseSpinner.getValue() / 4) * 4;
-        int address = base + row * 4;
+        int base = ((Integer) memoryBaseSpinner.getValue() / Architecture.INSTRUCTION_BYTES) * Architecture.INSTRUCTION_BYTES;
+        int address = base + row * Architecture.INSTRUCTION_BYTES;
         Object raw = memoryModel.getValueAt(row, 1);
         String normalized = raw == null ? "" : raw.toString().trim();
         try {
-            int parsed;
+            long parsed;
             if (normalized.startsWith("0x") || normalized.startsWith("0X")) {
-                parsed = Integer.parseUnsignedInt(normalized.substring(2), 16);
+                parsed = Long.parseUnsignedLong(normalized.substring(2), 16);
             } else if (normalized.startsWith("-") || normalized.matches("[0-9]+")) {
-                parsed = Integer.parseInt(normalized, 10);
+                parsed = Long.parseLong(normalized, 10);
             } else {
-                parsed = Integer.parseUnsignedInt(normalized, 16);
+                parsed = Long.parseUnsignedLong(normalized, 16);
             }
             writeWord(address, parsed);
         } catch (NumberFormatException ex) {
@@ -955,17 +962,22 @@ public class ComputerWorkbench extends JFrame {
         }
     }
 
-    private int readMemoryWord(int address) {
+    private void writeWord(int address, long value) {
+        motherboard.getSystemBus().writeWord(new Address(address), new Word(value));
+        refreshState();
+    }
+
+    private long readMemoryWord(int address) {
         Word word = new Word();
         try {
             motherboard.getSystemBus().readWord(new Address(address), word);
         } catch (RuntimeException ex) {
             word.set(0);
         }
-        return word.getAsInt();
+        return word.getAsLong();
     }
 
-    private Instruction decodeInstruction(int rawWord) {
+    private Instruction decodeInstruction(long rawWord) {
         Instruction instruction = new Instruction();
         try {
             motherboard.getCpu().getInstructionDecoder().decode(new Word(rawWord), instruction);
@@ -1037,17 +1049,17 @@ public class ComputerWorkbench extends JFrame {
         return null;
     }
 
-    private Integer resolveWatchValue(String token) {
+    private Long resolveWatchValue(String token) {
         String normalized = token.toLowerCase();
         switch (normalized) {
             case "pc":
-                return motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
+                return (long) motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
             case "sp":
-                return motherboard.getCpu().getSpecialRegisters().getSP().getAsInt();
+                return (long) motherboard.getCpu().getSpecialRegisters().getSP().getAsInt();
             case "ir":
-                return motherboard.getCpu().getSpecialRegisters().getIR().getAsInt();
+                return motherboard.getCpu().getSpecialRegisters().getIR().getAsLong();
             case "flags":
-                int flags = 0;
+                long flags = 0;
                 if (motherboard.getCpu().getSpecialRegisters().isZero()) {
                     flags |= 1;
                 }
@@ -1069,7 +1081,7 @@ public class ComputerWorkbench extends JFrame {
                     }
                     Word value = new Word();
                     motherboard.getCpu().getRegisterFile().read(registerIndex, value);
-                    return value.getAsInt();
+                    return value.getAsLong();
                 }
         }
         Integer address = parseFlexibleInteger(token);
@@ -1105,12 +1117,12 @@ public class ComputerWorkbench extends JFrame {
         if (address == null) {
             return;
         }
-        address = (address / 4) * 4;
+        address = (address / Architecture.INSTRUCTION_BYTES) * Architecture.INSTRUCTION_BYTES;
         if (address < 0) {
             address = 0;
         }
-        if (address > Architecture.MEMORY_SIZE_BYTES - 4) {
-            address = Architecture.MEMORY_SIZE_BYTES - 4;
+        if (address > Architecture.MEMORY_SIZE_BYTES - Architecture.INSTRUCTION_BYTES) {
+            address = Architecture.MEMORY_SIZE_BYTES - Architecture.INSTRUCTION_BYTES;
         }
         memoryBaseSpinner.setValue(address);
         refreshMemoryView();
@@ -1122,8 +1134,8 @@ public class ComputerWorkbench extends JFrame {
             return;
         }
         int matchAddress = -1;
-        for (int address = 0; address < Architecture.MEMORY_SIZE_BYTES; address += 4) {
-            if (readMemoryWord(address) == target) {
+        for (int address = 0; address < Architecture.MEMORY_SIZE_BYTES; address += Architecture.INSTRUCTION_BYTES) {
+            if (readMemoryWord(address) == target.longValue()) {
                 matchAddress = address;
                 break;
             }
@@ -1135,7 +1147,7 @@ public class ComputerWorkbench extends JFrame {
         }
     }
 
-    private void recordTrace(String phase, int pcBefore, int rawWord, int pcAfter) {
+    private void recordTrace(String phase, int pcBefore, long rawWord, int pcAfter) {
         String decoded = formatInstruction(decodeInstruction(rawWord));
         String entry = phase + " @" + String.format("0x%04X", pcBefore) + " -> " + decoded + " | next " + String.format("0x%04X", pcAfter);
         traceEntries.addFirst(entry);
@@ -1325,6 +1337,10 @@ public class ComputerWorkbench extends JFrame {
 
     private String formatRegisterValue(int value) {
         return value + " (0x" + Integer.toHexString(value).toUpperCase() + ")";
+    }
+
+    private String formatRegisterValue(long value) {
+        return value + " (0x" + Long.toHexString(value).toUpperCase() + ")";
     }
 
     private String buildSyntax(OpCode opCode) {
