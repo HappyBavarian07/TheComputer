@@ -132,7 +132,7 @@
       "id": "ISA-002",
       "title": "Migrate to Native 64-Bit Architecture & Extended ISA",
       "module": "isa",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "priority": "HIGH",
       "phase": "Phase 10.5 - 64-Bit Architecture Migration",
       "dependencies": [

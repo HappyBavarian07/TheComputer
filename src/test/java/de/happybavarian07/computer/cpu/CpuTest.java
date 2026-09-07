@@ -184,4 +184,33 @@ class CpuTest {
         assertFalse(cpu.isHalted());
         assertEquals(0, cpu.getSpecialRegisters().getPC().getAsInt());
     }
+
+    @Test
+    void testCoreThroughputBenchmark() {
+        // Build tight loop program:
+        // 0x00: MOVI r1, 1
+        // 0x08: ADDI r2, r2, 1
+        // 0x10: JMP 0x08
+        writeInstruction(0x0000, OpCode.MOVI, 1, 0, 1);
+        writeInstruction(0x0008, OpCode.ADDI, 2, 2, 1);
+        writeInstruction(0x0010, OpCode.JMP, 0, 0, 0x0008);
+
+        // Warm up JIT
+        for (int i = 0; i < 20_000; i++) {
+            cpu.step();
+        }
+
+        // Measure instructions per second
+        long targetSteps = 200_000;
+        long start = System.nanoTime();
+        for (long i = 0; i < targetSteps; i++) {
+            cpu.step();
+        }
+        long elapsedNanos = System.nanoTime() - start;
+        double hz = targetSteps / (elapsedNanos / 1_000_000_000.0);
+        double mips = hz / 1_000_000.0;
+
+        System.out.printf("[BENCHMARK] Simulated CPU Throughput: %,.0f instructions/sec (%.2f MIPS / %.2f kHz)%n", hz, mips, hz / 1000.0);
+        assertTrue(hz > 0);
+    }
 }
