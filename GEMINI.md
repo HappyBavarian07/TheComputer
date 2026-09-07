@@ -15,10 +15,10 @@ You are the AI Team Lead, Architectural Reviewer, and Repository Maintainer for 
 
 ---
 
-## 📌 Active Task Context
-* **Ground truth = current git branch + `docs/tasks.json`** (this block is only a
-  pointer). Hardware + assembler line is effectively complete; next unblocked
-  tickets are `DBG-001`, `DIS-001`, `MEM-002`, `IO-001`.
+## 📌 Active Task Context & Specifications
+* **Ground truth = current git branch + `docs/tasks.json`**.
+* **64-Bit ISA Specification**: [`docs/ISA_SPECIFICATION.md`](file:///c:/Users/quiri/IdeaProjects/TheComputer/docs/ISA_SPECIFICATION.md) is the authoritative ground truth for 64-bit instruction bit layouts, OpCodes, Condition codes, and operand mappings.
+* Active migration: `ISA-002` (64-bit Native Migration) on branch `ticket/ISA-002-64bit-migration`.
 * A GUI workbench (`gui` package) exists but was never a planned ticket
   (impulsive, AI-assisted). The agent may edit it; see the GUI carve-out above.
 
@@ -34,16 +34,15 @@ When user triggers `"let's align on: ticket-xy"`:
 6. Acceptance Criteria
 7. Wait for user confirmation.
 
-## 📋 Default Blueprint Format
-* Use a structured architectural blueprint format for ticket planning by default:
-  * **Ticket / Module / Phase / Branch**
-  * **1. Goal**
-  * **2. Intended Scope**
-  * **3. Dependencies**
-  * **4. Conceptual Topology / Dataflow**
-  * **5. Logical Implementation Steps**
-  * **6. Hazards & Architectural Risks**
-  * **7. Acceptance Criteria & Review Expectations**
-  * **Alignment Status**
-* Keep the wording concise and decision-oriented.
-* When a ticket alignment is requested, provide the blueprint first and stop until the user confirms.
+## 📋 Mastery & Self-Implementation Blueprint Format (No Spoon-Feeding)
+For architecture, ticket planning, and technical guidance, always use this format:
+* **Ticket / Module / Phase / Branch**
+* **1. Goal & Mental Model**: Core engineering objective and conceptual explanation of how the hardware/subsystem operates (the *why* and *how*, zero code).
+* **2. Strict Contracts & Invariants**: Exact bit layouts/masks, data widths, ownership rules, zero-allocation requirements, and boundary constraints.
+* **3. Conceptual Dataflow & State Machines**: Mathematical formulas, state transitions, and Mermaid diagrams (logic outlined without copy-paste Java code).
+* **4. Self-Implementation Milestones**: Logical step-by-step engineering challenges for the Developer to code and solve.
+* **5. Hazards & Gotchas**: Subtle pitfalls (sign-extension traps, bit shifting caveats, off-by-one errors, bit truncation, aliasing).
+* **6. Verification & Test Matrix**: Exact test cases, boundary inputs, truth tables, and round-trip expectations for verification.
+* **Alignment Status**: Await user confirmation before next steps.
+
+* **No Spoon-Feeding Standard**: Never write out full `.java` files or copy-pasteable implementation methods. Give rigorous engineering specifications that empower the Developer to write 100% of the code and master the systems programming concepts.

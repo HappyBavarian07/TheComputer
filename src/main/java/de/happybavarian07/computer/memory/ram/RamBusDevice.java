@@ -21,13 +21,13 @@ public class RamBusDevice implements BusDevice {
     }
 
     @Override
-    public void read(Address address, Word destination) {
-        ram.readWord(address, destination);
+    public void read(Address address, Word destination, int byteCount) {
+        ram.read(address, destination, byteCount);
     }
 
     @Override
-    public void write(Address address, Word source) {
-        ram.writeWord(address, source);
+    public void write(Address address, Word source, int byteCount) {
+        ram.write(address, source, byteCount);
     }
 
     @Override

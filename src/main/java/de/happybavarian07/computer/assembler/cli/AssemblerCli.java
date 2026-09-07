@@ -12,6 +12,7 @@ import de.happybavarian07.computer.assembler.resolver.SymbolResolver;
 import de.happybavarian07.computer.assembler.resolver.model.ResolvedProgram;
 import de.happybavarian07.computer.exceptions.assembler.EncodingException;
 import de.happybavarian07.computer.exceptions.assembler.ResolutionException;
+import de.happybavarian07.computer.util.Architecture;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -164,8 +165,8 @@ public final class AssemblerCli {
         for (EncodedWord w : words) {
             System.out.printf("%-12d %-35s 0x%08X%n",
                     w.byteAddress(),
-                    Integer.toUnsignedString(w.rawWord(), 2),
-                    Integer.toUnsignedLong(w.rawWord()));
+                    Long.toUnsignedString(w.rawWord(), 2),
+                    w.rawWord());
         }
     }
 
@@ -235,15 +236,15 @@ public final class AssemblerCli {
 
             while (currentAddress < maxAddress) {
                 if (wordIndex < words.size() && words.get(wordIndex).byteAddress() == currentAddress) {
-                    int raw = words.get(wordIndex).rawWord();
-                    byte byte0 = (byte) (raw & 0xFF);
-                    byte byte1 = (byte) ((raw >>> 8) & 0xFF);
-                    byte byte2 = (byte) ((raw >>> 16) & 0xFF);
-                    byte byte3 = (byte) ((raw >>> 24) & 0xFF);
-                    byteBuffer.write(new byte[]{byte0, byte1, byte2, byte3});
+                    long raw = words.get(wordIndex).rawWord();
+                    byte[] bytes = new byte[Architecture.INSTRUCTION_BYTES];
+                    for(int i = 0; i < Architecture.INSTRUCTION_BYTES; i++) {
+                        bytes[i] = (byte) (i == 0 ? raw & 0xFF : raw >>> (i * 8) & 0xFF);
+                    }
+                    byteBuffer.write(bytes);
                     wordIndex += 1;
                 } else {
-                    byteBuffer.write(new byte[]{0x00, 0x00, 0x00, 0x00});
+                    byteBuffer.write(new byte[]{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
                 }
                 currentAddress += 4;
             }

@@ -1,5 +1,6 @@
 package de.happybavarian07.computer.assembler.parser;
 
+import de.happybavarian07.computer.assembler.encoder.model.OperandMapping;
 import de.happybavarian07.computer.assembler.lexer.Lexer;
 import de.happybavarian07.computer.assembler.lexer.Token;
 import de.happybavarian07.computer.assembler.lexer.TokenKind;
@@ -13,14 +14,10 @@ import de.happybavarian07.computer.assembler.parser.model.statement.EmptyStateme
 import de.happybavarian07.computer.assembler.parser.model.statement.InstructionStatement;
 import de.happybavarian07.computer.assembler.parser.model.statement.LabelStatement;
 import de.happybavarian07.computer.exceptions.assembler.ParserException;
+import de.happybavarian07.computer.isa.Condition;
 import de.happybavarian07.computer.isa.OpCode;
 
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 public class DefaultParser implements Parser {
     private static final EnumSet<OperandKind> R = EnumSet.of(OperandKind.REGISTER);
@@ -30,26 +27,25 @@ public class DefaultParser implements Parser {
     private static final Map<String, List<EnumSet<OperandKind>>> OPCODE_SIGNATURES = new HashMap<>();
 
     static {
-        OPCODE_SIGNATURES.put("NOP", List.of());
-        OPCODE_SIGNATURES.put("HALT", List.of());
-        OPCODE_SIGNATURES.put("MOV", List.of(R, R));
-        OPCODE_SIGNATURES.put("LOAD", List.of(R, N));
-        OPCODE_SIGNATURES.put("LOADR", List.of(R, R));
-        OPCODE_SIGNATURES.put("STORE", List.of(N, R));
-        OPCODE_SIGNATURES.put("STORER", List.of(R, R));
-        OPCODE_SIGNATURES.put("ADD", List.of(R, R));
-        OPCODE_SIGNATURES.put("SUB", List.of(R, R));
-        OPCODE_SIGNATURES.put("AND", List.of(R, R));
-        OPCODE_SIGNATURES.put("OR", List.of(R, R));
-        OPCODE_SIGNATURES.put("XOR", List.of(R, R));
-        OPCODE_SIGNATURES.put("NOT", List.of(R));
-        OPCODE_SIGNATURES.put("SHL", List.of(R, N));
-        OPCODE_SIGNATURES.put("SHR", List.of(R, N));
-        OPCODE_SIGNATURES.put("JMP", List.of(N));
-        OPCODE_SIGNATURES.put("JZ", List.of(N));
-        OPCODE_SIGNATURES.put("JNZ", List.of(N));
-        OPCODE_SIGNATURES.put("PUSH", List.of(R));
-        OPCODE_SIGNATURES.put("POP", List.of(R));
+        // map operand kind to R,N,S, map operand kind with opcode, assign rns to opcode per operand kind?
+        Map<OperandMapping, List<OpCode>> operandMap = new HashMap<>();
+        for(OpCode opCode : OpCode.values()) {
+            OperandMapping temp = opCode.operandMapping();
+            operandMap.putIfAbsent(temp, new ArrayList<>());
+            operandMap.get(temp).add(opCode);
+        }
+
+        for(Map.Entry<OperandMapping, List<OpCode>> entry : operandMap.entrySet()) {
+            switch (entry.getKey()) {
+                case RD_RS1_RS2 -> entry.getValue().forEach(opCode -> OPCODE_SIGNATURES.put(opCode.name(), List.of(R, R, R)));
+                case RD_RS1_IMM32, RD_RS1_OFFSET32 -> entry.getValue().forEach(opCode -> OPCODE_SIGNATURES.put(opCode.name(), List.of(R, R, N)));
+                case RD_RS1 -> entry.getValue().forEach(opCode -> OPCODE_SIGNATURES.put(opCode.name(), List.of(R, R)));
+                case RD_IMM32 -> entry.getValue().forEach(opCode -> OPCODE_SIGNATURES.put(opCode.name(), List.of(R, N)));
+                case IMM32_RD -> entry.getValue().forEach(opCode -> OPCODE_SIGNATURES.put(opCode.name(), List.of(N, R)));
+                case IMM32_ONLY -> entry.getValue().forEach(opCode -> OPCODE_SIGNATURES.put(opCode.name(), List.of(N)));
+                case RS1_ONLY, RD_ONLY -> entry.getValue().forEach(opCode -> OPCODE_SIGNATURES.put(opCode.name(), List.of(R)));
+            }
+        }
     }
 
     private final Lexer lexer;
@@ -119,15 +115,48 @@ public class DefaultParser implements Parser {
 
     private Statement parseInstructionStatement() {
         Token opTok = expect(TokenKind.IDENT, "expected opcode");
-        String opName = opTok.lexeme().toUpperCase(Locale.ROOT);
-        validateOpcode(opTok, opName);
+        DissectedMnemonic dissectedMnemonic = splitMnemonic(opTok);
+        validateOpcode(opTok, dissectedMnemonic.opcode());
 
-        List<ParsedOperand> parsedOperands = parseOperandsForInstruction(opTok, opName);
+        List<ParsedOperand> parsedOperands = parseOperandsForInstruction(opTok, dissectedMnemonic.opcode());
         List<Operand> operands = parsedOperands.stream().map(p -> p.operand).toList();
-        validateInstructionOperands(opTok, opName, operands);
+        validateInstructionOperands(opTok, dissectedMnemonic.opcode(), operands);
 
         Token end = parsedOperands.isEmpty() ? opTok : parsedOperands.getLast().token;
-        return new InstructionStatement(opName, operands, spanOf(opTok, end));
+        return new InstructionStatement(dissectedMnemonic.opcode(), dissectedMnemonic.condition(), operands, spanOf(opTok, end));
+    }
+
+    private DissectedMnemonic splitMnemonic(Token opTok) {
+        String raw = opTok.lexeme().toUpperCase(Locale.ROOT);
+
+        // direct match
+        if (OpCode.valueOfNullable(raw) != null) {
+            return new DissectedMnemonic(raw, "AL");
+        }
+
+        // suffix check
+        for (Condition cond : Condition.values()) {
+            String suffix = cond.name();
+            if (raw.endsWith(suffix)) {
+                String prefix = raw.substring(0, raw.length() - suffix.length());
+                if (OpCode.valueOfNullable(prefix) != null) {
+                    return new DissectedMnemonic(prefix, suffix);
+                }
+            }
+            for(String alias : cond.aliases()) {
+                if(raw.endsWith(alias)) {
+                    String prefix = raw.substring(0, raw.length() - alias.length());
+                    if (OpCode.valueOfNullable(prefix) != null) {
+                        return new DissectedMnemonic(prefix, suffix);
+                    }
+                }
+            }
+        }
+
+        throw error(opTok, "unknown opcode '" + opTok.lexeme() + "'");
+    }
+
+    record DissectedMnemonic(String opcode, String condition) {
     }
 
     private Statement parseDirectiveStatement() {

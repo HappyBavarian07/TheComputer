@@ -1,5 +1,6 @@
 package de.happybavarian07.computer.gui;
 
+import de.happybavarian07.computer.assembler.parser.model.Operand;
 import de.happybavarian07.computer.gui.theme.Theme;
 import de.happybavarian07.computer.assembler.cli.AssemblerCli;
 import de.happybavarian07.computer.assembler.encoder.AssemblerEncoder;
@@ -106,12 +107,15 @@ public class ComputerWorkbench extends JFrame {
     private static final Pattern LABEL_REFERENCE_PATTERN = Pattern.compile("(?m)^\\s*([A-Za-z_][\\w]*)\\s*:");
     private static final Map<OperandMapping, String> OPERAND_SYNTAX = Map.of(
             OperandMapping.NONE, "",
-            OperandMapping.RD_RS, "rd, rs",
-            OperandMapping.RD_ONLY, "rd",
-            OperandMapping.RS_ONLY, "rs",
-            OperandMapping.RD_IMM16, "rd, imm16",
-            OperandMapping.IMM16_RD, "imm16, rd",
-            OperandMapping.IMM16_ONLY, "imm16"
+            OperandMapping.RD_RS1_RS2, "rd, rs1, rs2",
+            OperandMapping.RD_RS1_IMM32, "rd, rs1, imm32",
+            OperandMapping.RD_RS1, "rd, rs1",
+            OperandMapping.RD_IMM32, "rd, imm32",
+            OperandMapping.IMM32_RD, "imm32, rd",
+            OperandMapping.RD_RS1_OFFSET32, "rd, rs1, offset32",
+            OperandMapping.IMM32_ONLY, "imm32",
+            OperandMapping.RS1_ONLY, "rs1",
+            OperandMapping.RD_ONLY, "rd"
     );
 
     private final Motherboard motherboard = new Motherboard();
@@ -724,7 +728,7 @@ public class ComputerWorkbench extends JFrame {
     private long runProgramOnce(Motherboard bench, int[] image, int startSp, int cap) {
         bench.reset();
         for (int i = 0; i < image.length; i++) {
-            bench.getSystemBus().write(new Address(i * 4), new Word(image[i]));
+            bench.getSystemBus().writeWord(new Address(i * Architecture.INSTRUCTION_BYTES), new Word(image[i]));
         }
         bench.getCpu().getSpecialRegisters().getPC().set(0);
         bench.getCpu().getSpecialRegisters().getSP().set(startSp);
@@ -744,7 +748,7 @@ public class ComputerWorkbench extends JFrame {
     }
 
     private void writeWord(int address, int value) {
-        motherboard.getSystemBus().write(new Address(address), new Word(value));
+        motherboard.getSystemBus().writeWord(new Address(address), new Word(value));
         refreshState();
     }
 
@@ -759,7 +763,7 @@ public class ComputerWorkbench extends JFrame {
             for (int byteIndex = 0; byteIndex < 4 && offset + byteIndex < binary.length; byteIndex++) {
                 raw |= (binary[offset + byteIndex] & 0xFF) << (byteIndex * 8);
             }
-            motherboard.getSystemBus().write(new Address(offset), new Word(raw));
+            motherboard.getSystemBus().writeWord(new Address(offset), new Word(raw));
         }
 
         motherboard.getCpu().getSpecialRegisters().getPC().set(0);
@@ -954,7 +958,7 @@ public class ComputerWorkbench extends JFrame {
     private int readMemoryWord(int address) {
         Word word = new Word();
         try {
-            motherboard.getSystemBus().read(new Address(address), word);
+            motherboard.getSystemBus().readWord(new Address(address), word);
         } catch (RuntimeException ex) {
             word.set(0);
         }
@@ -976,15 +980,21 @@ public class ComputerWorkbench extends JFrame {
             return "data";
         }
         OpCode opCode = instruction.opCode();
-        return switch (opCode) {
-            case NOP, HALT -> opCode.name().toLowerCase();
-            case MOV, LOADR, STORER, ADD, SUB, AND, OR, XOR -> opCode.name().toLowerCase() + " r" + instruction.regDestIndex() + ", r" + instruction.regSourceIndex();
-            case LOAD -> opCode.name().toLowerCase() + " r" + instruction.regDestIndex() + ", " + formatImmediate(instruction.immediateAddr());
-            case STORE -> opCode.name().toLowerCase() + " " + formatImmediate(instruction.immediateAddr()) + ", r" + instruction.regDestIndex();
-            case NOT, POP -> opCode.name().toLowerCase() + " r" + instruction.regDestIndex();
-            case SHL, SHR -> opCode.name().toLowerCase() + " r" + instruction.regDestIndex() + ", " + formatImmediate(instruction.immediateAddr());
-            case JMP, JZ, JNZ -> opCode.name().toLowerCase() + " " + formatImmediate(instruction.immediateAddr());
-            case PUSH -> opCode.name().toLowerCase() + " r" + instruction.regSourceIndex();
+        String mnemonic = opCode.name().toLowerCase();
+        if (instruction.condition() != null && instruction.condition() != de.happybavarian07.computer.isa.Condition.AL) {
+            mnemonic += instruction.condition().name().toLowerCase();
+        }
+        return switch (opCode.operandMapping()) {
+            case NONE -> mnemonic;
+            case RD_RS1_RS2 -> mnemonic + " r" + instruction.regDestIndex() + ", r" + instruction.regSource1Index() + ", r" + instruction.regSource2Index();
+            case RD_RS1_IMM32 -> mnemonic + " r" + instruction.regDestIndex() + ", r" + instruction.regSource1Index() + ", " + formatImmediate(instruction.immediateAddr());
+            case RD_RS1 -> mnemonic + " r" + instruction.regDestIndex() + ", r" + instruction.regSource1Index();
+            case RD_IMM32 -> mnemonic + " r" + instruction.regDestIndex() + ", " + formatImmediate(instruction.immediateAddr());
+            case IMM32_RD -> mnemonic + " " + formatImmediate(instruction.immediateAddr()) + ", r" + instruction.regDestIndex();
+            case RD_RS1_OFFSET32 -> mnemonic + " r" + instruction.regDestIndex() + ", r" + instruction.regSource1Index() + ", " + formatImmediate(instruction.immediateAddr());
+            case IMM32_ONLY -> mnemonic + " " + formatImmediate(instruction.immediateAddr());
+            case RS1_ONLY -> mnemonic + " r" + instruction.regSource1Index();
+            case RD_ONLY -> mnemonic + " r" + instruction.regDestIndex();
         };
     }
 
@@ -1325,25 +1335,46 @@ public class ComputerWorkbench extends JFrame {
     private String describeOpcode(OpCode opCode) {
         return switch (opCode) {
             case NOP -> "No operation.";
-            case MOV -> "Copy a value from one register to another.";
-            case LOAD -> "Load an immediate literal into a register.";
-            case LOADR -> "Load a value from memory via register address.";
-            case STORE -> "Store a register value into an immediate memory address.";
-            case STORER -> "Store a register value into a register-addressed memory location.";
-            case ADD -> "Add the source register into the destination register.";
-            case SUB -> "Subtract the source register from the destination register.";
-            case AND -> "Bitwise AND between destination and source registers.";
-            case OR -> "Bitwise OR between destination and source registers.";
-            case XOR -> "Bitwise XOR between destination and source registers.";
-            case NOT -> "Bitwise negate the destination register.";
-            case SHL -> "Shift the destination register left by an immediate amount.";
-            case SHR -> "Shift the destination register right by an immediate amount.";
-            case JMP -> "Jump to an absolute address.";
-            case JZ -> "Jump if the zero flag is set.";
-            case JNZ -> "Jump if the zero flag is clear.";
-            case PUSH -> "Push a register onto the stack.";
-            case POP -> "Pop a register from the stack.";
-            case HALT -> "Stop execution.";
+            case MOV -> "Copy value from source register to destination register.";
+            case MOVI -> "Load 32-bit immediate constant directly into register.";
+            case HALT -> "Halt CPU execution.";
+            case ADD -> "Add source registers into destination register (rd = rs1 + rs2).";
+            case ADDI -> "Add immediate to source register into destination register (rd = rs1 + imm).";
+            case SUB -> "Subtract source registers (rd = rs1 - rs2).";
+            case SUBI -> "Subtract immediate from source register (rd = rs1 - imm).";
+            case MUL -> "Multiply source registers into destination register (rd = rs1 * rs2).";
+            case DIV -> "Divide source registers (quotient into destination register).";
+            case MOD -> "Modulo division remainder into destination register.";
+            case CMP -> "Compare registers and update flags (rd - rs1).";
+            case CMPI -> "Compare register with immediate and update flags (rd - imm).";
+            case AND -> "Bitwise AND between source registers.";
+            case ANDI -> "Bitwise AND with immediate bitmask.";
+            case OR -> "Bitwise OR between source registers.";
+            case ORI -> "Bitwise OR with immediate bitmask.";
+            case XOR -> "Bitwise XOR between source registers.";
+            case XORI -> "Bitwise XOR with immediate bitmask.";
+            case NOT -> "Bitwise invert source register into destination register.";
+            case SHL -> "Logical shift left by register amount.";
+            case SHLI -> "Logical shift left by immediate bit count.";
+            case SHR -> "Logical unsigned right shift by register amount.";
+            case SHRI -> "Logical unsigned right shift by immediate bit count.";
+            case JMP -> "Jump to address.";
+            case CALL -> "Call subroutine at immediate address.";
+            case RET -> "Return from subroutine.";
+            case JMPR -> "Jump to address in register.";
+            case CALLR -> "Call subroutine at address in register.";
+            case PUSH -> "Push register value onto stack.";
+            case POP -> "Pop value from stack into register.";
+            case LOADB -> "Load 8-bit byte from memory.";
+            case LOADH -> "Load 16-bit halfword from memory.";
+            case LOADI -> "Load 32-bit int from memory.";
+            case LOADW -> "Load 64-bit word from memory.";
+            case STOREB -> "Store 8-bit byte into memory.";
+            case STOREH -> "Store 16-bit halfword into memory.";
+            case STOREI -> "Store 32-bit int into memory.";
+            case STOREW -> "Store 64-bit word into memory.";
+            case LOADR -> "Load from memory at register base plus offset.";
+            case STORER -> "Store into memory at register base plus offset.";
         };
     }
 
@@ -1858,15 +1889,20 @@ public class ComputerWorkbench extends JFrame {
     }
 
     private OperandRole roleFor(OperandMapping mapping, int operandIndex) {
-        return switch (mapping) {
-            case RD_RS -> OperandRole.REGISTER;
-            case RD_ONLY -> OperandRole.REGISTER;
-            case RS_ONLY -> OperandRole.REGISTER;
-            case RD_IMM16 -> operandIndex == 0 ? OperandRole.REGISTER : OperandRole.IMMEDIATE;
-            case IMM16_RD -> operandIndex == 0 ? OperandRole.IMMEDIATE : OperandRole.REGISTER;
-            case IMM16_ONLY -> OperandRole.LABEL_OR_IMMEDIATE;
-            case NONE -> OperandRole.NONE;
-        };
+        String[] mappingArray = OPERAND_SYNTAX.get(mapping).split(", ");
+        if(operandIndex < 0 || operandIndex >= mappingArray.length) return OperandRole.NONE;
+        String operandRole = mappingArray[operandIndex];
+        switch (operandRole.toLowerCase()) {
+            case "rd", "rs1", "rs2" -> {
+                return OperandRole.REGISTER;
+            }
+            case "imm32" -> {
+                return OperandRole.IMMEDIATE;
+            }
+            default -> {
+                return OperandRole.NONE;
+            }
+        }
     }
 
     private String expectedOperandText(OpCode opCode, int operandIndex) {
@@ -1882,7 +1918,8 @@ public class ComputerWorkbench extends JFrame {
     private record CompletionSuggestion(String text, String usage, String description, String insertion) {
     }
 
-    private record CompletionContext(CompletionMode mode, String prefix, OpCode opcode, int operandIndex, OperandMapping mapping, String detail) {
+    private record CompletionContext(CompletionMode mode, String prefix, OpCode opcode, int operandIndex,
+                                     OperandMapping mapping, String detail) {
     }
 
     private enum CompletionMode {

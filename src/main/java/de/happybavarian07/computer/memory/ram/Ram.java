@@ -58,14 +58,22 @@ public class Ram {
     }
 
     public void readWord(Address address, Word destination) {
+        read(address, destination, Architecture.INSTRUCTION_BYTES);
+    }
+
+    public void writeWord(Address address, Word source) {
+        write(address, source, Architecture.INSTRUCTION_BYTES);
+    }
+
+    public void read(Address address, Word destination, int byteCount) {
         int baseAddr = address.getAsInt();
-        // Need 4 bytes for a Word: valid baseAddr is 0 .. capacityBytes-4
-        if (baseAddr < 0 || baseAddr > capacityBytes - 4) {
+        // Need byteCount bytes for a Word: valid baseAddr is 0 .. capacityBytes-byteCount
+        if (baseAddr < 0 || baseAddr > capacityBytes - byteCount) {
             throw new IndexOutOfBoundsException("Tried to access RAM outside address space: " + baseAddr);
         }
 
-        for (int k = 0; k < 4; k++) {
-            int wordSliceStart = (3 - k) * 8;
+        for (int k = 0; k < byteCount; k++) {
+            int wordSliceStart = (byteCount - 1 - k) * 8;
 
             for (int j = 0; j < 8; j++) {
                 destination.set(wordSliceStart + j, memory[baseAddr + k].get(j));
@@ -73,14 +81,14 @@ public class Ram {
         }
     }
 
-    public void writeWord(Address address, Word source) {
+    public void write(Address address, Word source, int byteCount) {
         int baseAddr = address.getAsInt();
-        // Need 4 bytes for a Word: valid baseAddr is 0 .. capacityBytes-4
-        if (baseAddr < 0 || baseAddr > capacityBytes - 4) {
+        // Need byteCount bytes for a Word: valid baseAddr is 0 .. capacityBytes-byteCount
+        if (baseAddr < 0 || baseAddr > capacityBytes - byteCount) {
             throw new IndexOutOfBoundsException("Tried to access RAM outside address space: " + baseAddr);
         }
-        for (int k = 0; k < 4; k++) {
-            int wordSliceStart = (3 - k) * 8;
+        for (int k = 0; k < byteCount; k++) {
+            int wordSliceStart = (byteCount - 1 - k) * 8;
 
             for (int j = 0; j < 8; j++) {
                 memory[baseAddr + k].set(j, source.get(wordSliceStart + j));
