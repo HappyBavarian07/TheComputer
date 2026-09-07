@@ -29,9 +29,15 @@ a source-code author. Confirmed with the user on 2026-08-13:
 * Files I *may* edit directly (non-source): docs, `docs/tasks.json`, `.asm`
   example programs under `src/main/resources/programs/`, build/config, and this
   file — but confirm before anything with side effects.
-* Alignment protocol: on `"let's align on: TICKET-XY"`, produce the blueprint
-  (Goal / Scope / Dependencies / Topology / Steps / Hazards / Acceptance) and
-  **stop for confirmation** before any implementation guidance.
+* Alignment protocol: on `"let's align on: TICKET-XY"`, produce the blueprint using the **Mastery & Self-Implementation Format**:
+  1. Goal & Mental Model (conceptual *why* and *how*, zero code).
+  2. Strict Contracts & Invariants (exact bit layouts, masks, data widths, ownership, zero-allocation).
+  3. Conceptual Dataflow & State Machines (formulas, state transitions, Mermaid diagrams).
+  4. Self-Implementation Milestones (structured sequence of engineering challenges for the dev to solve).
+  5. Hazards & Gotchas (sign extension, shift caveats, off-by-one, aliasing).
+  6. Verification & Test Matrix (boundary cases, truth tables, round-trip tests).
+  7. Stop and wait for user confirmation.
+* **No Spoon-Feeding Standard**: Never output full `.java` files or copy-pasteable method implementations. Provide rigorous engineering specs that enable the Developer to code 100% of the solution and master the architecture.
 
 ## 🏗️ Build & Environment
 
@@ -44,14 +50,13 @@ a source-code author. Confirmed with the user on 2026-08-13:
 
 ## 📌 Live State (authoritative — overrides any stale "Active Task" block in AGENTS.md/GEMINI.md)
 
-* **Current branch:** `ticket/GUI-003-memory-grid`. The GUI workbench was an
-  unplanned, vibecoded addition (not a tracked ticket); I own it and may edit it.
-* **Done:** CORE-*, CPU-*, MEM-001, ISA-001, SYS-001, **ASM-001 (assembler),
-  ASM-002 (CLI)**. Reconciled in `docs/tasks.json` 2026-08-13.
-* **Work order (set 2026-08-15):** `DIS-001` (disassembler) → `CACHE-001` (cache
-  hierarchy L1→L2→L3, start simple) → `MC-001` (multicore SMP, N cores) →
-  `DBG-001` (debugger). All four HIGH with populated `blueprint`s. Then `MEM-002`,
-  `IO-001`; disk-sim + input are later phases.
+* **Current branch:** `ticket/ISA-002-64bit-migration` (Native 64-bit Architecture & Extended ISA migration).
+* **64-Bit ISA Specification**: [`docs/ISA_SPECIFICATION.md`](file:///c:/Users/quiri/IdeaProjects/TheComputer/docs/ISA_SPECIFICATION.md) is the authoritative ground truth for 64-bit instruction bit layouts, OpCodes, Condition codes, and operand mappings.
+* **Done:** CORE-*, CPU-*, MEM-001, ISA-001, SYS-001, ASM-001, ASM-002.
+* **Active Migration (ISA-002)**:
+  * 64-bit Word / Arithmetic / RegisterFile / SpecialRegisters / InstructionDecoder / 3-operand ALU.
+* **Post-Migration Work Order:** `DIS-001` (disassembler) → `CACHE-001` (cache
+  hierarchy L1→L2→L3) → `MC-001` (multicore SMP, N cores) → `DBG-001` (debugger).
 * **Perf note:** ~0.5s/instruction in the GUI is NOT the CPU core — it's
   `refreshMemoryView()` rebuilding 64 `JTextField` cells + listeners every step.
   Fix (JTable + in-place update) folds into the GUI rework. `MC-001` also flags a

@@ -6,13 +6,10 @@
 
 ---
 
-## 📌 Active Task State
-* **Ground truth = the current git branch + `docs/tasks.json`.** This block is a
-  pointer, not a second source of truth — do not hand-edit a ticket ID here.
-* Hardware + assembler line (CORE-*, CPU-*, MEM-001, ISA-001, SYS-001, ASM-001,
-  ASM-002) is effectively complete. Remaining unblocked work: `DBG-001`,
-  `DIS-001`, `MEM-002`, `IO-001`; the compiler chain (LANG/COMP/LEX/PAR/IR/CG/…)
-  comes after.
+## 📌 Active Task State & Specifications
+* **Ground truth = current git branch + `docs/tasks.json`.**
+* **64-Bit ISA Specification**: [`docs/ISA_SPECIFICATION.md`](file:///c:/Users/quiri/IdeaProjects/TheComputer/docs/ISA_SPECIFICATION.md) is the authoritative ground truth for 64-bit instruction bit layouts, OpCodes, Condition codes, and operand mappings.
+* Active migration: `ISA-002` (64-bit Native Migration) on branch `ticket/ISA-002-64bit-migration`.
 * A GUI workbench (`gui` package) exists but was **never a planned ticket** — an
   impulsive, AI-assisted addition. It is not owned by the Developer's
   "can-I-still-code" challenge; the AI Agent may edit it (see carve-out below).
@@ -44,19 +41,18 @@ When the user says **`"let's align on: ticket-xy"`** (or `"Alignment on: TICKET-
 6. **Acceptance Criteria & Review Expectations**: Hard verification criteria.
 7. **Wait**: Stop and wait for user confirmation before starting implementation.
 
-## 📋 Default Alignment Blueprint Format
-* For architecture or ticket planning discussions, use this structure by default:
-  * **Ticket / Module / Phase / Branch**
-  * **1. Goal**
-  * **2. Intended Scope**
-  * **3. Dependencies**
-  * **4. Conceptual Topology / Dataflow**
-  * **5. Logical Implementation Steps**
-  * **6. Hazards & Architectural Risks**
-  * **7. Acceptance Criteria & Review Expectations**
-  * **Alignment Status**
-* Prefer concise headings and explicit in-scope / out-of-scope bullets over prose-heavy explanations.
-* If the user is asking to align on a ticket, present the blueprint first and wait for confirmation before implementation.
+## 📋 Mastery & Self-Implementation Blueprint Format (No Spoon-Feeding)
+For architecture, ticket planning, and technical guidance, always use this format:
+* **Ticket / Module / Phase / Branch**
+* **1. Goal & Mental Model**: Core engineering objective and conceptual explanation of how the hardware/subsystem operates (the *why* and *how*, zero code).
+* **2. Strict Contracts & Invariants**: Exact bit layouts/masks, data widths, ownership rules, zero-allocation requirements, and boundary constraints.
+* **3. Conceptual Dataflow & State Machines**: Mathematical formulas, state transitions, and Mermaid diagrams (logic outlined without copy-paste Java code).
+* **4. Self-Implementation Milestones**: Logical step-by-step engineering challenges for the Developer to code and solve.
+* **5. Hazards & Gotchas**: Subtle pitfalls (sign-extension traps, bit shifting caveats, off-by-one errors, bit truncation, aliasing).
+* **6. Verification & Test Matrix**: Exact test cases, boundary inputs, truth tables, and round-trip expectations for verification.
+* **Alignment Status**: Await user confirmation before next steps.
+
+* **No Spoon-Feeding Standard**: Never write out full `.java` files or copy-pasteable implementation methods. Give rigorous engineering specifications that empower the Developer to write 100% of the code and master the systems programming concepts.
 
 ---
 
