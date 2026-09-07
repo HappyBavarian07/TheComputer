@@ -40,10 +40,10 @@ class AluTest {
 
     @Test
     void testAddOverflow() {
-        inA.set(Integer.MAX_VALUE);
+        inA.set(Long.MAX_VALUE);
         inB.set(1);
         alu.execute(inA, inB, AluOp.ADD, outResult, flagZ, flagN, flagC, flagV);
-        assertEquals(Integer.MIN_VALUE, outResult.getAsInt(), "Result is wrong.");
+        assertEquals(Long.MIN_VALUE, outResult.getAsLong(), "Result is wrong.");
         assertFlags(false, true, false, true);
     }
 
@@ -76,17 +76,17 @@ class AluTest {
 
     @Test
     void testOr() {
-        inA.set(0x00FF0000);
-        inB.set(0xF0000F0F);
+        inA.set(0x0000000000FF0000L);
+        inB.set(0x00000000F0000F0FL);
         alu.execute(inA, inB, AluOp.OR, outResult, flagZ, flagN, flagC, flagV);
-        assertEquals(0xF0FF0F0F, outResult.getAsInt(), "Result is wrong.");
-        assertFlags(false, true, false, false);
+        assertEquals(0xF0FF0F0FL, outResult.getAsLong(), "Result is wrong.");
+        assertFlags(false, false, false, false);
     }
 
     @Test
     void testXor() {
-        inA.set(0xFFFFFFFF);
-        inB.set(0xFFFFFFFF);
+        inA.set(0xFFFFFFFFL);
+        inB.set(0xFFFFFFFFL);
         alu.execute(inA, inB, AluOp.XOR, outResult, flagZ, flagN, flagC, flagV);
         assertEquals(0, outResult.getAsInt(), "Result is wrong.");
         assertFlags(true, false, false, false);
@@ -96,13 +96,14 @@ class AluTest {
     void testNot() {
         inA.set(0);
         alu.execute(inA, inB, AluOp.NOT, outResult, flagZ, flagN, flagC, flagV);
-        assertEquals(0xFFFFFFFF, outResult.getAsInt(), "Result is wrong.");
+        assertEquals(-1L, outResult.getAsLong(), "Result is wrong.");
         assertFlags(false, true, false, false);
     }
 
     @Test
     void testShlBasic() {
         inA.set(1);
+        inB.set(1);
         alu.execute(inA, inB, AluOp.SHL, outResult, flagZ, flagN, flagC, flagV);
         assertEquals(2, outResult.getAsInt(), "Result is wrong.");
         assertFlags(false, false, false, false);
@@ -110,15 +111,17 @@ class AluTest {
 
     @Test
     void testShlCarry() {
-        inA.set(0x80000000);
+        inA.set(0x8000000000000000L);
+        inB.set(1);
         alu.execute(inA, inB, AluOp.SHL, outResult, flagZ, flagN, flagC, flagV);
-        assertEquals(0, outResult.getAsInt(), "Result is wrong.");
+        assertEquals(0, outResult.getAsLong(), "Result is wrong.");
         assertFlags(true, false, true, false);
     }
 
     @Test
     void testShrBasic() {
         inA.set(2);
+        inB.set(1);
         alu.execute(inA, inB, AluOp.SHR, outResult, flagZ, flagN, flagC, flagV);
         assertEquals(1, outResult.getAsInt(), "Result is wrong.");
         assertFlags(false, false, false, false);
@@ -126,15 +129,17 @@ class AluTest {
 
     @Test
     void testShrMsb() {
-        inA.set(0x80000000);
+        inA.set(0x8000000000000000L);
+        inB.set(1);
         alu.execute(inA, inB, AluOp.SHR, outResult, flagZ, flagN, flagC, flagV);
-        assertEquals(0x40000000, outResult.getAsInt(), "Result is wrong.");
+        assertEquals(0x4000000000000000L, outResult.getAsLong(), "Result is wrong.");
         assertFlags(false, false, false, false);
     }
 
     @Test
     void testShrCarry() {
         inA.set(1);
+        inB.set(1);
         alu.execute(inA, inB, AluOp.SHR, outResult, flagZ, flagN, flagC, flagV);
         assertEquals(0, outResult.getAsInt(), "Result is wrong.");
         assertFlags(true, false, true, false);
@@ -146,19 +151,28 @@ class AluTest {
         for (AluOp op : AluOp.values()) {
             if (op.equals(AluOp.SHL) || op.equals(AluOp.SHR) || op.equals(AluOp.NOP)) continue;
             for (int i = 0; i < 1000; i++) {
-                inA.set(random.nextInt());
-                inB.set(random.nextInt());
+                inA.set(random.nextLong());
+                inB.set(random.nextLong());
                 alu.execute(inA, inB, op, outResult, flagZ, flagN, flagC, flagV);
-                int expected = 0;
+                long expected = 0;
                 switch (op) {
-                    case ADD -> expected = inA.getAsInt() + inB.getAsInt();
-                    case SUB -> expected = inA.getAsInt() - inB.getAsInt();
-                    case AND -> expected = inA.getAsInt() & inB.getAsInt();
-                    case OR -> expected = inA.getAsInt() | inB.getAsInt();
-                    case XOR -> expected = inA.getAsInt() ^ inB.getAsInt();
-                    case NOT -> expected = ~inA.getAsInt();
+                    case ADD -> expected = inA.getAsLong() + inB.getAsLong();
+                    case SUB -> expected = inA.getAsLong() - inB.getAsLong();
+                    case MUL -> expected = inA.getAsLong() * inB.getAsLong();
+                    case DIV -> {
+                        if (inB.getAsLong() == 0) continue;
+                        expected = Long.divideUnsigned(inA.getAsLong(), inB.getAsLong());
+                    }
+                    case MOD -> {
+                        if (inB.getAsLong() == 0) continue;
+                        expected = Long.remainderUnsigned(inA.getAsLong(), inB.getAsLong());
+                    }
+                    case AND -> expected = inA.getAsLong() & inB.getAsLong();
+                    case OR -> expected = inA.getAsLong() | inB.getAsLong();
+                    case XOR -> expected = inA.getAsLong() ^ inB.getAsLong();
+                    case NOT -> expected = ~inA.getAsLong();
                 }
-                assertEquals(expected, outResult.getAsInt(), op + " is wrong for inA = " + inA.getAsInt() + ", inB = " + inB.getAsInt());
+                assertEquals(expected, outResult.getAsLong(), op + " is wrong for inA = " + inA.getAsLong() + ", inB = " + inB.getAsLong());
             }
         }
     }

@@ -5,6 +5,7 @@ import de.happybavarian07.computer.core.bit.Bit;
 import de.happybavarian07.computer.core.word.Word;
 import de.happybavarian07.computer.exceptions.bus.BusBusyException;
 import de.happybavarian07.computer.exceptions.bus.BusFaultException;
+import de.happybavarian07.computer.util.Architecture;
 
 /*
  * @Author HappyBavarian07
@@ -34,7 +35,7 @@ public class SystemBus {
         return addressDecoder;
     }
 
-    public void read(Address address, Word destination) {
+    public void read(Address address, Word destination, int byteCount) {
         if (readEnable.getAsBool() || writeEnable.getAsBool()) {
             throw new BusBusyException("Cannot initiate bus transaction: SystemBus is already active (readEnable=" + readEnable.getAsBool() + ", writeEnable=" + writeEnable.getAsBool() + ")");
         }
@@ -47,14 +48,14 @@ public class SystemBus {
                 throw new BusFaultException("No device mapped at address " + addressBus.getAsHexaDecString());
             }
             relativeAddressBus.set(addressBus.getAsInt() - mapping.startAddress());
-            mapping.device().read(relativeAddressBus, dataBus);
+            mapping.device().read(relativeAddressBus, dataBus, byteCount);
             destination.set(dataBus);
         } finally {
             readEnable.set(false);
         }
     }
 
-    public void write(Address address, Word source) {
+    public void write(Address address, Word source, int byteCount) {
         if (readEnable.getAsBool() || writeEnable.getAsBool()) {
             throw new BusBusyException("Cannot initiate bus transaction: SystemBus is already active (readEnable=" + readEnable.getAsBool() + ", writeEnable=" + writeEnable.getAsBool() + ")");
         }
@@ -68,10 +69,18 @@ public class SystemBus {
                 throw new BusFaultException("No device mapped at address " + addressBus.getAsHexaDecString());
             }
             relativeAddressBus.set(addressBus.getAsInt() - mapping.startAddress());
-            mapping.device().write(relativeAddressBus, dataBus);
+            mapping.device().write(relativeAddressBus, dataBus, byteCount);
         } finally {
             writeEnable.set(false);
         }
+    }
+
+    public void readWord(Address address, Word destination) {
+        read(address, destination, Architecture.INSTRUCTION_BYTES);
+    }
+
+    public void writeWord(Address address, Word source) {
+        write(address, source, Architecture.INSTRUCTION_BYTES);
     }
 
     public void reset() {

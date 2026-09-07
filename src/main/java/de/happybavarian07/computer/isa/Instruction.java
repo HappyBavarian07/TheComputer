@@ -6,25 +6,31 @@ package de.happybavarian07.computer.isa;
  */
 public class Instruction {
     private OpCode opCode;
+    private Condition condition;
     private int regDestIndex;
-    private int regSourceIndex;
+    private int regSource1Index;
+    private int regSource2Index;
     private int immediateAddr;
 
     public Instruction() {
-        this(OpCode.NOP, 0, 0, 0);
+        this(OpCode.NOP, Condition.AL, 0, 0, 0, 0);
     }
 
-    public Instruction(OpCode opCode, int regDestIndex, int regSourceIndex, int immediateAddr) {
+    public Instruction(OpCode opCode, Condition condition, int regDestIndex, int regSource1Index, int regSource2Index, int immediateAddr) {
         this.opCode = opCode;
+        this.condition = condition;
         this.regDestIndex = regDestIndex;
-        this.regSourceIndex = regSourceIndex;
+        this.regSource1Index = regSource1Index;
+        this.regSource2Index = regSource2Index;
         this.immediateAddr = immediateAddr;
     }
 
-    public void set(OpCode opCode, int regDestIndex, int regSourceIndex, int immediateAddr) {
+    public void set(OpCode opCode, Condition condition, int regDestIndex, int regSource1Index, int regSource2Index, int immediateAddr) {
         this.opCode = opCode;
+        this.condition = condition;
         this.regDestIndex = regDestIndex;
-        this.regSourceIndex = regSourceIndex;
+        this.regSource1Index = regSource1Index;
+        this.regSource2Index = regSource2Index;
         this.immediateAddr = immediateAddr;
     }
 
@@ -36,6 +42,14 @@ public class Instruction {
         this.opCode = opCode;
     }
 
+    public Condition condition() {
+        return condition;
+    }
+
+    public void setCondition(Condition condition) {
+        this.condition = condition;
+    }
+
     public int regDestIndex() {
         return regDestIndex;
     }
@@ -44,12 +58,20 @@ public class Instruction {
         this.regDestIndex = regDestIndex;
     }
 
-    public int regSourceIndex() {
-        return regSourceIndex;
+    public int regSource1Index() {
+        return regSource1Index;
     }
 
-    public void setRegSourceIndex(int regSourceIndex) {
-        this.regSourceIndex = regSourceIndex;
+    public void setRegSource1Index(int regSource1Index) {
+        this.regSource1Index = regSource1Index;
+    }
+
+    public int regSource2Index() {
+        return regSource2Index;
+    }
+
+    public void setRegSource2Index(int regSource2Index) {
+        this.regSource2Index = regSource2Index;
     }
 
     public int immediateAddr() {
@@ -62,7 +84,9 @@ public class Instruction {
 
     public void reset() {
         this.opCode = null;
-        this.regSourceIndex = 0;
+        this.condition = null;
+        this.regSource1Index = 0;
+        this.regSource2Index = 0;
         this.regDestIndex = 0;
         this.immediateAddr = 0;
     }

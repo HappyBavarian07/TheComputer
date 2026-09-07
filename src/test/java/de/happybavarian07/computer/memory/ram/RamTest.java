@@ -82,11 +82,11 @@ class RamTest {
 
     @Test
     void testOutOfBounds() {
-        address.set(65535);
+        address.set(ram.getCapacityBytes());
         assertThrows(IndexOutOfBoundsException.class, () -> ram.readWord(address, wordDestination));
         assertThrows(IndexOutOfBoundsException.class, () -> ram.writeWord(address, wordSource));
 
-        address.set(65533);
+        address.set(ram.getCapacityBytes() - 3);
         assertThrows(IndexOutOfBoundsException.class, () -> ram.readWord(address, wordDestination));
     }
 

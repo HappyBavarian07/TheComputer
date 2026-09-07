@@ -40,7 +40,7 @@ public class SymbolResolver {
                 symbolTable.map(name, locationCounter);
             }
             if (statement instanceof InstructionStatement) {
-                locationCounter += 4;
+                locationCounter += Architecture.INSTRUCTION_BYTES;
             } else if (statement instanceof DirectiveStatement directiveStatement) {
                 locationCounter = applyDirective(locationCounter, directiveStatement);
                 if (".org".equalsIgnoreCase(directiveStatement.name())) {

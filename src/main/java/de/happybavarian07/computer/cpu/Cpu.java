@@ -26,10 +26,12 @@ public class Cpu {
     private final InstructionDecoder instructionDecoder;
 
     private final Instruction currentInstruction;
-    private final Word regSrcValue;
+    private final Word regSrc1Value;
+    private final Word regSrc2Value;
     private final Word regDestValue;
     private final Address workingAddress;
     private final Word workingResult;
+    private final Word scratchReturnAddrWord;
 
     private boolean isHalted;
 
@@ -41,10 +43,12 @@ public class Cpu {
         instructionDecoder = new InstructionDecoder();
 
         currentInstruction = new Instruction();
-        regSrcValue = new Word();
+        regSrc1Value = new Word();
+        regSrc2Value = new Word();
         regDestValue = new Word();
         workingAddress = new Address();
         workingResult = new Word();
+        scratchReturnAddrWord = new Word();
 
     }
 
@@ -56,111 +60,180 @@ public class Cpu {
     public void step() {
         // read instruction from pc address via systembus
         // decode
+        // check condition
         // execute and write back aka whole opcode logic
-        // increment pc by 4 bytes if not branching instruction
+        // increment pc by 8 bytes if not branching instruction
         specialRegisters.readPC(workingAddress);
-        systemBus.read(workingAddress, specialRegisters.getIR());
+        systemBus.readWord(workingAddress, specialRegisters.getIR());
         instructionDecoder.decode(specialRegisters.getIR(), currentInstruction);
         boolean pcUpdate = true;
-        switch (currentInstruction.opCode()) {
-            case MOV -> {
-                registerFile.read(currentInstruction.regSourceIndex(), workingResult);
-                registerFile.write(currentInstruction.regDestIndex(), workingResult);
-            }
-            case LOAD -> {
-                workingAddress.set(currentInstruction.immediateAddr());
-                systemBus.read(workingAddress, workingResult);
-                registerFile.write(currentInstruction.regDestIndex(), workingResult);
-            }
-            case LOADR -> {
-                registerFile.read(currentInstruction.regSourceIndex(), regSrcValue);
-                workingAddress.set(regSrcValue.getAsInt() & 0xFFFF);
-                systemBus.read(workingAddress, workingResult);
-            }
-            case STORE -> {
-                workingAddress.set(currentInstruction.immediateAddr());
-                registerFile.read(currentInstruction.regSourceIndex(), regSrcValue);
-                systemBus.write(workingAddress, regSrcValue);
-            }
-            case STORER -> {
-                registerFile.read(currentInstruction.regDestIndex(), regDestValue);
-                workingAddress.set(regDestValue.getAsInt() & 0xFFFF);
-                registerFile.read(currentInstruction.regSourceIndex(), regSrcValue);
-                systemBus.write(workingAddress, regSrcValue);
-            }
-            case ADD, SUB, AND, OR, XOR, NOT, SHL, SHR -> {
-                registerFile.read(currentInstruction.regSourceIndex(), regSrcValue);
-                if (!currentInstruction.opCode().equals(OpCode.SHL) && !currentInstruction.opCode().equals(OpCode.SHR))
+        if (currentInstruction.condition().test(specialRegisters.getFlagZBit(), specialRegisters.getFlagNBit(), specialRegisters.getFlagCBit(), specialRegisters.getFlagVBit())) {
+            boolean writesRd = false;
+            // split this up
+            // reading data (first switch)
+            // execute (second switch)
+            // write (final ifs)
+            switch (currentInstruction.opCode().operandMapping()) {
+                case NONE -> {
+                } // nothing
+                case RD_RS1_RS2 -> {
+                    registerFile.read(currentInstruction.regSource1Index(), regSrc1Value);
+                    registerFile.read(currentInstruction.regSource2Index(), regSrc2Value);
+                } // read r1, r2
+                case RD_RS1_IMM32 -> {
+                    registerFile.read(currentInstruction.regSource1Index(), regSrc1Value);
+                    regSrc2Value.set(currentInstruction.immediateAddr());
+                } // read r1, set src2 to imm32
+                case RD_RS1, RS1_ONLY -> {
+                    registerFile.read(currentInstruction.regSource1Index(), regSrc1Value);
+                } // read r1
+                case RD_IMM32 -> {
+                    workingAddress.set(currentInstruction.immediateAddr());
+                    regSrc2Value.set(currentInstruction.immediateAddr());
                     registerFile.read(currentInstruction.regDestIndex(), regDestValue);
-                AluOp aluOp = AluOp.NOP;
-                switch (currentInstruction.opCode()) {
-                    case ADD -> aluOp = AluOp.ADD;
-                    case SUB -> aluOp = AluOp.SUB;
-                    case AND -> aluOp = AluOp.AND;
-                    case OR -> aluOp = AluOp.OR;
-                    case XOR -> aluOp = AluOp.XOR;
-                    case NOT -> aluOp = AluOp.NOT;
-                    case SHL -> aluOp = AluOp.SHL;
-                    case SHR -> aluOp = AluOp.SHR;
+                } // set workingAddress & src2 to imm32, read rd
+                case IMM32_RD -> {
+                    workingAddress.set(currentInstruction.immediateAddr());
+                    registerFile.read(currentInstruction.regDestIndex(), regSrc1Value);
+                } // set workingAddress to imm32, read rd into src1
+                case RD_RS1_OFFSET32 -> {
+                    registerFile.read(currentInstruction.regSource1Index(), regSrc1Value);
+                    registerFile.read(currentInstruction.regDestIndex(), regDestValue);
+
+                    int effectiveAddress = regSrc1Value.getAsInt() + currentInstruction.immediateAddr();
+                    workingAddress.set(effectiveAddress);
+                } // read r1, read rd, set workingAddress to imm32
+                case IMM32_ONLY -> {
+                    workingAddress.set(currentInstruction.immediateAddr());
+                } // set workingAddress to imm32
+                case RD_ONLY -> {
+                } // nothing to read
+            }
+
+
+            switch (currentInstruction.opCode()) {
+                // Cat0
+                case MOV -> {
+                    workingResult.set(regSrc1Value);
+                    writesRd = true;
                 }
-                alu.execute(
-                        regSrcValue,
-                        (!currentInstruction.opCode().equals(OpCode.SHL) && !currentInstruction.opCode().equals(OpCode.SHR)) ? regDestValue : null,
-                        aluOp,
-                        workingResult,
-                        specialRegisters.getFlagZBit(), specialRegisters.getFlagNBit(), specialRegisters.getFlagCBit(), specialRegisters.getFlagVBit()
-                );
-                registerFile.write(currentInstruction.regDestIndex(), workingResult);
-            }
-            case JMP -> {
-                specialRegisters.getPC().set(currentInstruction.immediateAddr());
-                pcUpdate = false;
-            }
-            case JZ -> {
-                if (specialRegisters.isZero()) {
-                    specialRegisters.getPC().set(currentInstruction.immediateAddr());
+                case MOVI -> {
+                    workingResult.set(workingAddress.getAsInt());
+                    writesRd = true;
+                }
+                case HALT -> {
+                    isHalted = true;
                     pcUpdate = false;
                 }
-            }
-            case JNZ -> {
-                if (!specialRegisters.isZero()) {
-                    specialRegisters.getPC().set(currentInstruction.immediateAddr());
+                // Cat1
+                case ADD, ADDI, SUB, SUBI, MUL, DIV, MOD -> {
+                    AluOp aluOp = AluOp.NOP;
+                    switch (currentInstruction.opCode()) {
+                        case ADD, ADDI -> aluOp = AluOp.ADD;
+                        case SUB, SUBI -> aluOp = AluOp.SUB;
+                        case MUL -> aluOp = AluOp.MUL;
+                        case DIV -> aluOp = AluOp.DIV;
+                        case MOD -> aluOp = AluOp.MOD;
+                    }
+                    alu.execute(regSrc1Value, regSrc2Value, aluOp, workingResult, specialRegisters.getFlagZBit(), specialRegisters.getFlagNBit(), specialRegisters.getFlagCBit(), specialRegisters.getFlagVBit());
+                    writesRd = true;
+                }
+                case CMP -> {
+                    alu.execute(regDestValue, regSrc1Value, AluOp.SUB, workingResult, specialRegisters.getFlagZBit(), specialRegisters.getFlagNBit(), specialRegisters.getFlagCBit(), specialRegisters.getFlagVBit());
+                }
+                case CMPI -> {
+                    workingResult.set(workingAddress.getAsInt());
+                    alu.execute(regDestValue, regSrc2Value, AluOp.SUB, workingResult, specialRegisters.getFlagZBit(), specialRegisters.getFlagNBit(), specialRegisters.getFlagCBit(), specialRegisters.getFlagVBit());
+                }
+                // Cat2
+                case AND, OR, XOR, NOT, SHL, SHR, /**/ ANDI, ORI, XORI, SHLI, SHRI -> {
+                    AluOp aluOp = AluOp.NOP;
+                    switch (currentInstruction.opCode()) {
+                        case AND, ANDI -> aluOp = AluOp.AND;
+                        case OR, ORI -> aluOp = AluOp.OR;
+                        case XOR, XORI -> aluOp = AluOp.XOR;
+                        case SHL, SHLI -> aluOp = AluOp.SHL;
+                        case SHR, SHRI -> aluOp = AluOp.SHR;
+                        case NOT -> aluOp = AluOp.NOT;
+                    }
+                    alu.execute(regSrc1Value, regSrc2Value, aluOp, workingResult, specialRegisters.getFlagZBit(), specialRegisters.getFlagNBit(), specialRegisters.getFlagCBit(), specialRegisters.getFlagVBit());
+                    writesRd = true;
+                }
+                // Cat3
+                case JMP -> {
+                    specialRegisters.getPC().set(workingAddress);
                     pcUpdate = false;
                 }
-            }
-            case PUSH -> {
-                int spVal = specialRegisters.getSP().getAsInt();
-                int newSp = spVal - 4;
-                if (newSp < Architecture.STACK_LIMIT_ADDRESS) {
-                    isHalted = true;
-                    throw new StackOverflowException("Tried to push data past max stack size.");
+                case CALL -> {
+                    scratchReturnAddrWord.set(specialRegisters.getPC().getAsInt() + Architecture.INSTRUCTION_BYTES);
+                    push(scratchReturnAddrWord);
+                    specialRegisters.getPC().set(workingAddress);
+                    pcUpdate = false;
+
                 }
-                registerFile.read(currentInstruction.regSourceIndex(), workingResult);
-                specialRegisters.getSP().set(newSp);
-                workingAddress.set(specialRegisters.getSP());
-                systemBus.write(workingAddress, workingResult);
-            }
-            case POP -> {
-                int spVal = specialRegisters.getSP().getAsInt();
-                if (spVal > Architecture.MEMORY_FREE_END - 4) {
-                    isHalted = true;
-                    throw new StackOverflowException("Tried to pop from empty stack.");
+                case RET -> {
+                    pop(scratchReturnAddrWord);
+                    specialRegisters.getPC().set(scratchReturnAddrWord);
+                    pcUpdate = false;
                 }
-                workingAddress.set(specialRegisters.getSP());
-                systemBus.read(workingAddress, workingResult);
+                case JMPR -> {
+                    specialRegisters.getPC().set(regSrc1Value.getAsLong() & 0xFFFFFFFFL);
+                    pcUpdate = false;
+                }
+                case CALLR -> {
+                    scratchReturnAddrWord.set(specialRegisters.getPC().getAsInt() + Architecture.INSTRUCTION_BYTES);
+                    push(scratchReturnAddrWord);
+                    specialRegisters.getPC().set(regSrc1Value.getAsLong() & 0xFFFFFFFFL);
+                    pcUpdate = false;
+                }
+                // Cat4
+                case PUSH -> {
+                    push(regSrc1Value);
+                }
+                case POP -> {
+                    pop(workingResult);
+                    writesRd = true;
+                }
+                // Cat5
+                case LOADB, LOADH, LOADI, LOADW -> {
+                    systemBus.readWord(workingAddress, workingResult);
+                    switch (currentInstruction.opCode()) {
+                        case LOADB -> workingResult.set(workingResult.getAsLong() & 0xFFL);
+                        case LOADH -> workingResult.set(workingResult.getAsLong() & 0xFFFFL);
+                        case LOADI -> workingResult.set(workingResult.getAsLong() & 0xFFFFFFFFL);
+                    }
+                    writesRd = true;
+                }
+                case LOADR -> {
+                    systemBus.readWord(workingAddress, workingResult);
+                    writesRd = true;
+                }
+                case STOREB -> {
+                    systemBus.write(workingAddress, regSrc1Value, 1);
+                }
+                case STOREH -> {
+                    systemBus.write(workingAddress, regSrc1Value, 2);
+                }
+                case STOREI -> {
+                    systemBus.write(workingAddress, regSrc1Value, 4);
+                }
+                case STOREW -> {
+                    systemBus.write(workingAddress, regSrc1Value, Architecture.INSTRUCTION_BYTES);
+                }
+                case STORER -> {
+                    systemBus.write(workingAddress, regDestValue, 8);
+                }
+                default -> {
+                }
+            }
+
+            if (writesRd) {
                 registerFile.write(currentInstruction.regDestIndex(), workingResult);
-                specialRegisters.getSP().add(4);
-            }
-            case HALT -> {
-                isHalted = true;
-                pcUpdate = false;
-            }
-            default -> {
             }
         }
 
-        if(pcUpdate) {
-            specialRegisters.getPC().add(4);
+        if (pcUpdate) {
+            specialRegisters.getPC().add(Architecture.INSTRUCTION_BYTES);
         }
     }
 
@@ -175,12 +248,35 @@ public class Cpu {
         specialRegisters.reset();
 
         currentInstruction.reset();
-        regSrcValue.set(0);
+        regSrc1Value.set(0);
+        regSrc2Value.set(0);
         regDestValue.set(0);
         workingAddress.set(0);
         workingResult.set(0);
 
         isHalted = false;
+    }
+
+    private void push(Word value) {
+        int newSp = specialRegisters.getSP().getAsInt() - Architecture.INSTRUCTION_BYTES;
+        if (newSp < Architecture.STACK_LIMIT_ADDRESS) {
+            isHalted = true;
+            throw new StackOverflowException("Tried to push data past max stack size.");
+        }
+        specialRegisters.getSP().set(newSp);
+        workingAddress.set(specialRegisters.getSP());
+        systemBus.writeWord(workingAddress, value);
+    }
+
+    private void pop(Word destination) {
+        int currentSp = specialRegisters.getSP().getAsInt();
+        if (currentSp > Architecture.STACK_BASE_ADDRESS) {
+            isHalted = true;
+            throw new StackOverflowException("Tried to pop from empty stack.");
+        }
+        workingAddress.set(specialRegisters.getSP());
+        systemBus.readWord(workingAddress, destination);
+        specialRegisters.getSP().add(Architecture.INSTRUCTION_BYTES);
     }
 
     public RegisterFile getRegisterFile() {

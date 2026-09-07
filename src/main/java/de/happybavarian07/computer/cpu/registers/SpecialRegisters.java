@@ -3,6 +3,7 @@ package de.happybavarian07.computer.cpu.registers;
 import de.happybavarian07.computer.core.address.Address;
 import de.happybavarian07.computer.core.bit.Bit;
 import de.happybavarian07.computer.core.word.Word;
+import de.happybavarian07.computer.util.Architecture;
 
 /*
  * @Author HappyBavarian07
@@ -16,7 +17,7 @@ public class SpecialRegisters {
 
     public SpecialRegisters() {
         pc = new Address(0);
-        sp = new Address(0xEFFF);
+        sp = new Address(Architecture.STACK_BASE_ADDRESS);
         ir = new Word(0);
         flagZ = new Bit(false);
         flagN = new Bit(false);
@@ -121,7 +122,7 @@ public class SpecialRegisters {
 
     public void reset() {
         pc.set(0);
-        sp.set(0xEFFF);
+        sp.set(Architecture.STACK_BASE_ADDRESS);
         ir.set(0);
         writeFlags(false, false, false, false);
     }

@@ -6,6 +6,7 @@ import de.happybavarian07.computer.assembler.parser.model.statement.InstructionS
 import de.happybavarian07.computer.assembler.resolver.model.ResolvedOperand;
 import de.happybavarian07.computer.assembler.resolver.model.ResolvedStatement;
 import de.happybavarian07.computer.exceptions.assembler.EncodingException;
+import de.happybavarian07.computer.isa.Condition;
 import de.happybavarian07.computer.isa.OpCode;
 import de.happybavarian07.computer.util.Architecture;
 
@@ -27,43 +28,65 @@ public class InstructionWordEncoder {
         if (resolvedStatement.operands().size() != arity)
             throw new EncodingException(sourceStatement.span(), "wrong operand count");
 
+        // Returns ALWAYS Condition when empty or null
+        Condition cond = Condition.valueOfSafe(sourceStatement.condition());
+
         List<ResolvedOperand> operands = resolvedStatement.operands();
         OperandMapping operandMapping = opCode.operandMapping();
-        int rd = 0, rs = 0, imm16 = 0;
+        long rd = 0, rs1 = 0, rs2 = 0, imm32 = 0;
         switch (operandMapping) {
             case NONE -> {
             }
-            case RD_RS -> {
+            case RD_RS1_RS2 -> {
                 rd = reg(operands.get(0));
-                rs = reg(operands.get(1));
+                rs1 = reg(operands.get(1));
+                rs2 = reg(operands.get(2));
+            }
+            case RD_RS1_IMM32, RD_RS1_OFFSET32 -> {
+                rd = reg(operands.get(0));
+                rs1 = reg(operands.get(1));
+                imm32 = imm(operands.get(2));
+            }
+            case RD_RS1 -> {
+                rd = reg(operands.get(0));
+                rs1 = reg(operands.get(1));
+            }
+            case RD_IMM32 -> {
+                rd = reg(operands.get(0));
+                imm32 = imm(operands.get(1));
+            }
+            case IMM32_RD -> {
+                imm32 = imm(operands.get(0));
+                rd = reg(operands.get(1));
+            }
+            case IMM32_ONLY -> {
+                imm32 = imm(operands.getFirst());
+            }
+            case RS1_ONLY -> {
+                rs1 = reg(operands.getFirst());
             }
             case RD_ONLY -> {
                 rd = reg(operands.getFirst());
-            }
-            case RS_ONLY -> {
-                rs = reg(operands.getFirst());
-            }
-            case RD_IMM16 -> {
-                rd = reg(operands.get(0));
-                imm16 = imm(operands.get(1));
-            }
-            case IMM16_RD -> {
-                imm16 = imm(operands.get(0));
-                rd = reg(operands.get(1));
-            }
-            case IMM16_ONLY -> {
-                imm16 = imm(operands.getFirst());
             }
             default -> {
                 throw new EncodingException(sourceStatement.span(), "unknown operand mapping '" + operandMapping + "'");
             }
         }
 
-        int rawWord =
-                ((opCode.binaryValue() & 0x3F) << 26) |
-                        ((rd & 0x1F) << 21) |
-                        ((rs & 0x1F) << 16) |
-                        (imm16 & 0xFFFF);
+        // for opcode do 0xFF and shl 56
+        // for cond do 0xF and shl 52
+        // for rdidx do 0x3F and shl 46
+        // for rs1idx do 0x3F and shl 40
+        // for rs2idx do 0x3F and shl 34
+        // for reserved space do 0x3 and shl 32
+        // for addr do 32-bit mask (0xFFFFFFFF)
+        long rawWord =
+                ((opCode.binaryValue().longValue() & 0xFF) << 56) |
+                        ((cond.binaryValue().longValue() & 0xFF) << 52) |
+                        ((rd & 0x3F) << 46) |
+                        ((rs1 & 0x3F) << 40) |
+                        ((rs2 & 0x3F) << 34) |
+                        (imm32 & 0xFFFFFFFFL);
 
         return new EncodedWord(resolvedStatement.address(), rawWord);
     }

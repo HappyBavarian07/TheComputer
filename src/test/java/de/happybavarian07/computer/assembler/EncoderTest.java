@@ -37,13 +37,13 @@ public class EncoderTest {
         List<EncodedWord> words = ep.words();
 
         EncodedWord w0 = words.stream().filter(w -> w.byteAddress() == 0).findFirst().orElseThrow();
-        EncodedWord w4 = words.stream().filter(w -> w.byteAddress() == 4).findFirst().orElseThrow();
+        EncodedWord w8 = words.stream().filter(w -> w.byteAddress() == 8).findFirst().orElseThrow();
 
-        int expectedNop = (OpCode.NOP.binaryValue() << 26);
-        int expectedHalt = (OpCode.HALT.binaryValue() << 26);
+        long expectedNop = (OpCode.NOP.binaryValue().longValue() << 56);
+        long expectedHalt = (OpCode.HALT.binaryValue().longValue() << 56);
 
         assertEquals(expectedNop, w0.rawWord());
-        assertEquals(expectedHalt, w4.rawWord());
+        assertEquals(expectedHalt, w8.rawWord());
     }
 
     @Test
@@ -52,7 +52,17 @@ public class EncoderTest {
         EncodedProgram ep = encode(src);
         EncodedWord w0 = ep.words().stream().filter(w -> w.byteAddress() == 0).findFirst().orElseThrow();
 
-        int expected = (OpCode.MOV.binaryValue() << 26) | (1 << 21) | (2 << 16);
+        long expected = (OpCode.MOV.binaryValue().longValue() << 56) | (1L << 46) | (2L << 40);
+        assertEquals(expected, w0.rawWord());
+    }
+
+    @Test
+    void encode_three_operand_add() {
+        String src = "add r3, r1, r2";
+        EncodedProgram ep = encode(src);
+        EncodedWord w0 = ep.words().stream().filter(w -> w.byteAddress() == 0).findFirst().orElseThrow();
+
+        long expected = (OpCode.ADD.binaryValue().longValue() << 56) | (3L << 46) | (1L << 40) | (2L << 34);
         assertEquals(expected, w0.rawWord());
     }
 
@@ -65,7 +75,7 @@ public class EncoderTest {
         assertEquals(1, words.size());
 
         EncodedWord w0 = words.get(0);
-        int expected = (65) | (10 << 8) | (0 << 16) | (0 << 24);
+        long expected = (65) | (10 << 8) | (0 << 16) | (0 << 24);
         assertEquals(0, w0.byteAddress());
         assertEquals(expected, w0.rawWord());
     }

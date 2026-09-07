@@ -22,14 +22,14 @@ public class Address extends FixedWidthBits {
     }
 
     public void increment() {
-        set((getAsInt() + 1) & 0xFFFF);
+        set((getAsInt() + 1) & 0xFFFFFFFFL);
     }
 
     public void add(int offset) {
-        set((getAsInt() + offset) & 0xFFFF);
+        set((getAsInt() + offset) & 0xFFFFFFFFL);
     }
 
     public void offset(int offset, Address dest) {
-        dest.set((getAsInt() + offset) & 0xFFFF);
+        dest.set((getAsInt() + offset) & 0xFFFFFFFFL);
     }
 }

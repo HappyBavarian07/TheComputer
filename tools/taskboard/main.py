@@ -34,7 +34,8 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QHeaderView,
     QFrame,
-    QProgressBar
+    QProgressBar,
+    QScrollArea
 )
 
 # Try importing QWebEngineView for live Mermaid diagram rendering
@@ -45,30 +46,30 @@ try:
 except ImportError:
     HAS_WEBENGINE = False
 
-# Modern GitHub Dark / Discord theme stylesheet
+# Calm Slate theme — matches the Java workbench palette (slate base, single blue accent)
 STYLESHEET = """
 QMainWindow {
-    background-color: #0d1117;
+    background-color: #14171d;
 }
 QWidget {
     font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'SF Pro Display', Roboto, sans-serif;
-    color: #c9d1d9;
+    color: #d6dbe4;
 }
 QDialog {
-    background-color: #161b22;
-    border: 1px solid #30363d;
+    background-color: #1e222a;
+    border: 1px solid #363c47;
     border-radius: 10px;
 }
 QTabWidget::pane {
-    border: 1px solid #30363d;
-    background-color: #0d1117;
+    border: 1px solid #363c47;
+    background-color: #14171d;
     border-radius: 8px;
 }
 QTabBar::tab {
-    background-color: #161b22;
-    color: #8b949e;
+    background-color: #1e222a;
+    color: #9aa4b2;
     padding: 10px 22px;
-    border: 1px solid #30363d;
+    border: 1px solid #363c47;
     border-bottom: none;
     border-top-left-radius: 8px;
     border-top-right-radius: 8px;
@@ -76,49 +77,49 @@ QTabBar::tab {
     margin-right: 4px;
 }
 QTabBar::tab:hover {
-    background-color: #21262d;
-    color: #f0f6fc;
+    background-color: #262b34;
+    color: #eef1f6;
 }
 QTabBar::tab:selected {
-    background-color: #0d1117;
-    color: #58a6ff;
-    border-bottom: 2px solid #58a6ff;
+    background-color: #14171d;
+    color: #5b8fd6;
+    border-bottom: 2px solid #5b8fd6;
 }
 QLabel#columnTitleTodo {
     font-size: 14px;
     font-weight: bold;
-    color: #f0f6fc;
+    color: #eef1f6;
     padding: 10px 14px;
-    background-color: #161b22;
-    border: 1px solid #30363d;
-    border-top: 4px solid #f85149;
+    background-color: #1e222a;
+    border: 1px solid #363c47;
+    border-top: 4px solid #cf6d6d;
     border-radius: 6px;
 }
 QLabel#columnTitleIP {
     font-size: 14px;
     font-weight: bold;
-    color: #f0f6fc;
+    color: #eef1f6;
     padding: 10px 14px;
-    background-color: #161b22;
-    border: 1px solid #30363d;
-    border-top: 4px solid #d29922;
+    background-color: #1e222a;
+    border: 1px solid #363c47;
+    border-top: 4px solid #d0a45f;
     border-radius: 6px;
 }
 QLabel#columnTitleDone {
     font-size: 14px;
     font-weight: bold;
-    color: #f0f6fc;
+    color: #eef1f6;
     padding: 10px 14px;
-    background-color: #161b22;
-    border: 1px solid #30363d;
-    border-top: 4px solid #238636;
+    background-color: #1e222a;
+    border: 1px solid #363c47;
+    border-top: 4px solid #5bab7a;
     border-radius: 6px;
 }
 QListWidget {
-    background-color: #161b22;
-    border: 1px solid #30363d;
+    background-color: #1e222a;
+    border: 1px solid #363c47;
     border-radius: 8px;
-    color: #c9d1d9;
+    color: #d6dbe4;
     padding: 8px;
 }
 QListWidget::item {
@@ -128,61 +129,79 @@ QListWidget::item {
     margin: 4px 0px;
 }
 QPushButton {
-    background-color: #238636;
+    background-color: #3f6fb0;
     color: #ffffff;
-    border: 1px solid #2ea043;
+    border: 1px solid #5b8fd6;
     border-radius: 6px;
     padding: 8px 16px;
     font-weight: 600;
     font-size: 13px;
 }
 QPushButton:hover {
-    background-color: #2ea043;
+    background-color: #4a7cc0;
 }
 QPushButton:pressed {
-    background-color: #238636;
+    background-color: #375f98;
 }
 QPushButton#secondaryBtn {
-    background-color: #21262d;
-    color: #c9d1d9;
-    border: 1px solid #30363d;
+    background-color: #262b34;
+    color: #d6dbe4;
+    border: 1px solid #363c47;
 }
 QPushButton#secondaryBtn:hover {
-    background-color: #30363d;
-    color: #f0f6fc;
+    background-color: #2f3540;
+    color: #eef1f6;
 }
 QComboBox, QLineEdit {
-    background-color: #0d1117;
-    border: 1px solid #30363d;
+    background-color: #14171d;
+    border: 1px solid #363c47;
     border-radius: 6px;
     padding: 8px 12px;
-    color: #f0f6fc;
+    color: #eef1f6;
     font-size: 13px;
 }
 QComboBox:hover, QLineEdit:focus {
-    border: 1px solid #58a6ff;
+    border: 1px solid #5b8fd6;
 }
 QTextBrowser, QTextEdit, QPlainTextEdit, QTableWidget {
-    background-color: #0d1117;
-    border: 1px solid #30363d;
+    background-color: #14171d;
+    border: 1px solid #363c47;
     border-radius: 8px;
-    color: #c9d1d9;
+    color: #d6dbe4;
     padding: 10px;
     font-size: 13px;
 }
 QProgressBar {
-    border: 1px solid #30363d;
+    border: 1px solid #363c47;
     border-radius: 6px;
     text-align: center;
-    background-color: #161b22;
-    color: #f0f6fc;
+    background-color: #1e222a;
+    color: #eef1f6;
     font-weight: bold;
 }
 QProgressBar::chunk {
-    background-color: #238636;
+    background-color: #5bab7a;
     border-radius: 5px;
 }
 """
+
+# Canonical TheComputer modules (bottom-up: hardware -> tooling -> compiler -> os)
+MODULES = [
+    "core", "cpu", "memory", "isa", "system",
+    "assembly", "debugger", "io",
+    "language", "compiler", "runtime", "optimizer", "os",
+]
+
+# Module badge color, grouped by layer family (keeps the board cohesive, not rainbow)
+_MODULE_COLORS = {
+    "core": "#5b8fd6", "cpu": "#5b8fd6", "memory": "#5b8fd6", "isa": "#5b8fd6", "system": "#5b8fd6",
+    "assembly": "#5bab7a", "debugger": "#5bab7a", "io": "#5bab7a",
+    "language": "#8a6fc0", "compiler": "#8a6fc0", "runtime": "#8a6fc0", "optimizer": "#8a6fc0", "os": "#8a6fc0",
+}
+
+def module_color(module):
+    return _MODULE_COLORS.get((module or "").lower(), "#6b7482")
+
 
 class TaskCardWidget(QFrame):
     def __init__(self, task_data, parent=None):
@@ -191,14 +210,14 @@ class TaskCardWidget(QFrame):
         self.setObjectName("taskCard")
         self.setStyleSheet("""
             QFrame#taskCard {
-                background-color: #21262d;
-                border: 1px solid #30363d;
+                background-color: #262b34;
+                border: 1px solid #363c47;
                 border-radius: 8px;
                 padding: 10px;
             }
             QFrame#taskCard:hover {
-                background-color: #262c36;
-                border: 1px solid #58a6ff;
+                background-color: #2f3540;
+                border: 1px solid #5b8fd6;
             }
         """)
         self.setup_ui()
@@ -211,19 +230,18 @@ class TaskCardWidget(QFrame):
         header_lay = QHBoxLayout()
         
         id_lbl = QLabel(self.task_data.get("id", "TASK-000"))
-        id_lbl.setStyleSheet("font-weight: bold; color: #58a6ff; font-size: 12px;")
+        id_lbl.setStyleSheet("font-weight: bold; color: #5b8fd6; font-size: 12px;")
         header_lay.addWidget(id_lbl)
 
         header_lay.addStretch()
 
-        mod = self.task_data.get("module", "server").upper()
-        mod_bg = "#1f6beb" if mod == "SERVER" else ("#8957e5" if mod == "CLIENT" else "#238636")
-        mod_badge = QLabel(f" {mod} ")
-        mod_badge.setStyleSheet(f"background-color: {mod_bg}; color: #ffffff; font-size: 10px; font-weight: bold; border-radius: 4px; padding: 2px 6px;")
+        mod = self.task_data.get("module", "core").lower()
+        mod_badge = QLabel(f" {mod.upper()} ")
+        mod_badge.setStyleSheet(f"background-color: {module_color(mod)}; color: #ffffff; font-size: 10px; font-weight: bold; border-radius: 4px; padding: 2px 6px;")
         header_lay.addWidget(mod_badge)
 
         prio = self.task_data.get("priority", "HIGH").upper()
-        prio_bg = "#da3633" if prio == "HIGH" else ("#9e6a03" if prio == "MEDIUM" else "#6e7681")
+        prio_bg = "#cf6d6d" if prio == "HIGH" else ("#a5813f" if prio == "MEDIUM" else "#6b7482")
         prio_badge = QLabel(f" {prio} ")
         prio_badge.setStyleSheet(f"background-color: {prio_bg}; color: #ffffff; font-size: 10px; font-weight: bold; border-radius: 4px; padding: 2px 6px;")
         header_lay.addWidget(prio_badge)
@@ -232,23 +250,43 @@ class TaskCardWidget(QFrame):
 
         title_lbl = QLabel(self.task_data.get("title", "Untitled Task"))
         title_lbl.setWordWrap(True)
-        title_lbl.setStyleSheet("font-size: 14px; font-weight: bold; color: #f0f6fc; margin-top: 2px;")
+        title_lbl.setStyleSheet("font-size: 14px; font-weight: bold; color: #eef1f6; margin-top: 2px;")
         layout.addWidget(title_lbl)
+
+        # dependency hint + blueprint indicator so cards carry real info at a glance
+        deps = self.task_data.get("dependencies", []) or []
+        has_bp = bool(self.task_data.get("blueprint"))
+        meta_bits = []
+        if deps:
+            meta_bits.append("⟵ " + ", ".join(deps))
+        meta_bits.append("📐 blueprint" if has_bp else "○ no blueprint")
+        meta_lbl = QLabel("   ".join(meta_bits))
+        meta_lbl.setStyleSheet("font-size: 11px; color: %s;" % ("#7fa8dd" if has_bp else "#6b7482"))
+        layout.addWidget(meta_lbl)
 
         phase = self.task_data.get("phase", "General")
         phase_lbl = QLabel(f"📍 {phase}")
-        phase_lbl.setStyleSheet("font-size: 11px; color: #8b949e;")
+        phase_lbl.setStyleSheet("font-size: 11px; color: #9aa4b2;")
         layout.addWidget(phase_lbl)
 
 class TaskDetailsDialog(QDialog):
     def __init__(self, parent=None, task_data=None):
         super().__init__(parent)
         self.setWindowTitle(f"Task Details — {task_data.get('id', 'New Task')}" if task_data else "New Task Ticket")
-        self.resize(780, 600)
+        self.resize(840, 820)
         self.setStyleSheet(STYLESHEET)
-        
+
         self.task_data = task_data or {}
         self.setup_ui()
+
+    def _multiline(self, initial, height=64):
+        w = QTextEdit()
+        if isinstance(initial, list):
+            w.setPlainText("\n".join(str(x) for x in initial))
+        else:
+            w.setPlainText(str(initial or ""))
+        w.setFixedHeight(height)
+        return w
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
@@ -256,97 +294,175 @@ class TaskDetailsDialog(QDialog):
         layout.setSpacing(12)
 
         header_lbl = QLabel(f"[{self.task_data.get('id', 'NEW')}] {self.task_data.get('title', 'Ticket Details')}")
-        header_lbl.setStyleSheet("font-size: 18px; font-weight: bold; color: #58a6ff;")
+        header_lbl.setStyleSheet("font-size: 18px; font-weight: bold; color: #5b8fd6;")
         layout.addWidget(header_lbl)
 
-        grid_lay = QHBoxLayout()
+        # scrollable form so the blueprint fields never overflow the dialog
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        content = QWidget()
+        form = QVBoxLayout(content)
+        form.setSpacing(10)
 
-        self.id_edit = QLineEdit(self.task_data.get("id", "SERVER-XXX"))
-        self.id_edit.setFixedWidth(110)
+        grid_lay = QHBoxLayout()
+        self.id_edit = QLineEdit(self.task_data.get("id", "MOD-XXX"))
+        self.id_edit.setFixedWidth(120)
         grid_lay.addWidget(QLabel("ID:"))
         grid_lay.addWidget(self.id_edit)
-
         self.title_edit = QLineEdit(self.task_data.get("title", ""))
         grid_lay.addWidget(QLabel("Title:"))
         grid_lay.addWidget(self.title_edit)
+        form.addLayout(grid_lay)
 
+        grid2 = QHBoxLayout()
         self.module_combo = QComboBox()
-        self.module_combo.addItems(["server", "client", "shared"])
-        self.module_combo.setCurrentText(self.task_data.get("module", "server"))
-        grid_lay.addWidget(QLabel("Module:"))
-        grid_lay.addWidget(self.module_combo)
+        self.module_combo.addItems(MODULES)
+        cur_mod = self.task_data.get("module", "core")
+        if cur_mod not in MODULES:
+            self.module_combo.addItem(cur_mod)
+        self.module_combo.setCurrentText(cur_mod)
+        grid2.addWidget(QLabel("Module:"))
+        grid2.addWidget(self.module_combo)
 
         self.priority_combo = QComboBox()
         self.priority_combo.addItems(["HIGH", "MEDIUM", "LOW"])
         self.priority_combo.setCurrentText(self.task_data.get("priority", "HIGH"))
-        grid_lay.addWidget(QLabel("Priority:"))
-        grid_lay.addWidget(self.priority_combo)
+        grid2.addWidget(QLabel("Priority:"))
+        grid2.addWidget(self.priority_combo)
 
         self.status_combo = QComboBox()
         self.status_combo.addItems(["TODO", "IN_PROGRESS", "DONE"])
         self.status_combo.setCurrentText(self.task_data.get("status", "TODO"))
-        grid_lay.addWidget(QLabel("Status:"))
-        grid_lay.addWidget(self.status_combo)
+        grid2.addWidget(QLabel("Status:"))
+        grid2.addWidget(self.status_combo)
+        form.addLayout(grid2)
 
-        layout.addLayout(grid_lay)
-
-        self.phase_edit = QLineEdit(self.task_data.get("phase", "Phase 1"))
         phase_lay = QHBoxLayout()
+        self.phase_edit = QLineEdit(self.task_data.get("phase", ""))
         phase_lay.addWidget(QLabel("Phase / Milestone:"))
         phase_lay.addWidget(self.phase_edit)
-        
         copy_branch_btn = QPushButton("Copy Git Branch Name")
         copy_branch_btn.setObjectName("secondaryBtn")
         copy_branch_btn.clicked.connect(self.copy_branch_name)
         phase_lay.addWidget(copy_branch_btn)
+        form.addLayout(phase_lay)
 
-        layout.addLayout(phase_lay)
+        dep_lay = QHBoxLayout()
+        self.deps_edit = QLineEdit(", ".join(self.task_data.get("dependencies", []) or []))
+        self.deps_edit.setPlaceholderText("Comma-separated ticket IDs, e.g. CPU-003, MEM-001")
+        dep_lay.addWidget(QLabel("Dependencies:"))
+        dep_lay.addWidget(self.deps_edit)
+        form.addLayout(dep_lay)
 
-        layout.addWidget(QLabel("Detailed Technical Requirements & Blueprint:"))
+        form.addWidget(QLabel("Description:"))
         self.desc_edit = QTextEdit()
         self.desc_edit.setPlainText(self.task_data.get("description", ""))
-        layout.addWidget(self.desc_edit)
+        self.desc_edit.setFixedHeight(70)
+        form.addWidget(self.desc_edit)
 
-        layout.addWidget(QLabel("Acceptance Criteria & Verification Checklist:"))
+        form.addWidget(QLabel("Acceptance Criteria & Verification Checklist:"))
         self.criteria_edit = QTextEdit()
         self.criteria_edit.setPlainText(self.task_data.get("acceptance_criteria", ""))
-        self.criteria_edit.setFixedHeight(120)
-        layout.addWidget(self.criteria_edit)
+        self.criteria_edit.setFixedHeight(80)
+        form.addWidget(self.criteria_edit)
+
+        # --- Alignment blueprint: mirrors the alignment protocol so the board
+        #     replaces the "ask the AI team lead to align" ritual ---
+        bp = self.task_data.get("blueprint", {}) or {}
+        bp_header = QLabel("Alignment Blueprint")
+        bp_header.setStyleSheet("font-size: 14px; font-weight: bold; color: #7fa8dd; margin-top: 6px;")
+        form.addWidget(bp_header)
+
+        form.addWidget(QLabel("Goal:"))
+        self.bp_goal = self._multiline(bp.get("goal", ""), 54)
+        form.addWidget(self.bp_goal)
+
+        scope_row = QHBoxLayout()
+        in_box = QVBoxLayout()
+        in_box.addWidget(QLabel("In scope (one per line):"))
+        self.bp_scope_in = self._multiline(bp.get("scope_in", []), 96)
+        in_box.addWidget(self.bp_scope_in)
+        out_box = QVBoxLayout()
+        out_box.addWidget(QLabel("Out of scope (one per line):"))
+        self.bp_scope_out = self._multiline(bp.get("scope_out", []), 96)
+        out_box.addWidget(self.bp_scope_out)
+        scope_row.addLayout(in_box)
+        scope_row.addLayout(out_box)
+        form.addLayout(scope_row)
+
+        form.addWidget(QLabel("Conceptual topology / dataflow:"))
+        self.bp_topology = self._multiline(bp.get("topology", ""), 54)
+        form.addWidget(self.bp_topology)
+
+        form.addWidget(QLabel("Logical implementation steps (one per line):"))
+        self.bp_steps = self._multiline(bp.get("steps", []), 96)
+        form.addWidget(self.bp_steps)
+
+        form.addWidget(QLabel("Hazards & architectural risks (one per line):"))
+        self.bp_hazards = self._multiline(bp.get("hazards", []), 72)
+        form.addWidget(self.bp_hazards)
+
+        form.addWidget(QLabel("Notes:"))
+        self.notes_edit = QLineEdit(self.task_data.get("notes", ""))
+        form.addWidget(self.notes_edit)
+
+        scroll.setWidget(content)
+        layout.addWidget(scroll)
 
         bot = QHBoxLayout()
         bot.addStretch()
-
         save_btn = QPushButton("Save Changes")
         save_btn.clicked.connect(self.accept)
         bot.addWidget(save_btn)
-
         cancel_btn = QPushButton("Cancel")
         cancel_btn.setObjectName("secondaryBtn")
         cancel_btn.clicked.connect(self.reject)
         bot.addWidget(cancel_btn)
-
         layout.addLayout(bot)
 
     def copy_branch_name(self):
         tid = self.id_edit.text().strip()
         title_slug = re.sub(r'[^a-zA-Z0-9]', '-', self.title_edit.text().lower()).strip('-')
-        branch_name = f"feature/{tid}-{title_slug}"
+        branch_name = f"ticket/{tid}-{title_slug}"
         cb = QApplication.clipboard()
         cb.setText(branch_name)
         QMessageBox.information(self, "Branch Name Copied", f"Copied branch name to clipboard:\n\n{branch_name}")
 
+    @staticmethod
+    def _lines(text):
+        return [ln.strip() for ln in text.splitlines() if ln.strip()]
+
     def get_data(self):
-        return {
-            "id": self.id_edit.text(),
-            "title": self.title_edit.text(),
-            "module": self.module_combo.currentText(),
+        # start from the existing task so unedited fields (e.g. dependencies we did
+        # not surface, custom keys) are preserved — no more silent data loss
+        data = dict(self.task_data)
+        module = self.module_combo.currentText()
+        data.update({
+            "id": self.id_edit.text().strip(),
+            "title": self.title_edit.text().strip(),
+            "module": module,
             "priority": self.priority_combo.currentText(),
             "status": self.status_combo.currentText(),
+            "phase": self.phase_edit.text().strip(),
+            "dependencies": [d.strip() for d in re.split(r'[,\s]+', self.deps_edit.text()) if d.strip()],
             "description": self.desc_edit.toPlainText(),
             "acceptance_criteria": self.criteria_edit.toPlainText(),
-            "phase": self.phase_edit.text(),
-            "tags": [self.module_combo.currentText().upper()]
+            "notes": self.notes_edit.text(),
+            "tags": [module.upper()],
+        })
+        blueprint = {
+            "goal": self.bp_goal.toPlainText().strip(),
+            "scope_in": self._lines(self.bp_scope_in.toPlainText()),
+            "scope_out": self._lines(self.bp_scope_out.toPlainText()),
+            "topology": self.bp_topology.toPlainText().strip(),
+            "steps": self._lines(self.bp_steps.toPlainText()),
+            "hazards": self._lines(self.bp_hazards.toPlainText()),
         }
+        if any(blueprint.values()):
+            data["blueprint"] = blueprint
+        elif "blueprint" in data:
+            del data["blueprint"]
+        return data
 
 class KanbanListWidget(QListWidget):
     def __init__(self, status, parent_board):
@@ -394,7 +510,7 @@ class KanbanListWidget(QListWidget):
         task_data = item.data(Qt.ItemDataRole.UserRole)
 
         menu = QMenu(self)
-        menu.setStyleSheet("background-color: #161b22; color: #f0f6fc; border: 1px solid #30363d;")
+        menu.setStyleSheet("background-color: #1e222a; color: #eef1f6; border: 1px solid #363c47;")
 
         edit_act = QAction("View Details / Edit", self)
         edit_act.triggered.connect(lambda: self.parent_board.edit_task(task_data))
@@ -423,7 +539,7 @@ class KanbanListWidget(QListWidget):
     def copy_task_branch(self, task_data):
         tid = task_data.get("id", "TASK")
         title_slug = re.sub(r'[^a-zA-Z0-9]', '-', task_data.get("title", "").lower()).strip('-')
-        branch_name = f"feature/{tid}-{title_slug}"
+        branch_name = f"ticket/{tid}-{title_slug}"
         cb = QApplication.clipboard()
         cb.setText(branch_name)
         self.parent_board.main_window.statusBar().showMessage(f"Copied branch name: {branch_name}", 3000)
@@ -445,7 +561,7 @@ class KanbanBoardWidget(QWidget):
         filter_layout = QHBoxLayout()
         filter_layout.addWidget(QLabel("Module:"))
         self.module_filter = QComboBox()
-        self.module_filter.addItems(["ALL", "server", "client", "shared"])
+        self.module_filter.addItems(["ALL"] + MODULES)
         self.module_filter.currentTextChanged.connect(self.apply_filters)
         filter_layout.addWidget(self.module_filter)
 
@@ -645,7 +761,7 @@ class PhaseListWidget(QListWidget):
             return
         task_data = item.data(Qt.ItemDataRole.UserRole)
         menu = QMenu(self)
-        menu.setStyleSheet("background-color: #161b22; color: #f0f6fc; border: 1px solid #30363d;")
+        menu.setStyleSheet("background-color: #1e222a; color: #eef1f6; border: 1px solid #363c47;")
         edit_act = QAction("View Details / Edit", self)
         edit_act.triggered.connect(lambda: self.parent_board.edit_task(task_data))
         menu.addAction(edit_act)
@@ -1074,7 +1190,7 @@ class RoadmapBrowserWidget(QWidget):
         self.file_list.setFixedWidth(240)
         self.file_list.currentTextChanged.connect(self.load_selected_file)
         
-        doc_files = ["ROADMAP.md", "shared_roadmap.md", "server_roadmap.md", "client_roadmap.md", ".gemini/GEMINI.md"]
+        doc_files = ["ROADMAP.md", "CLAUDE.md", "AGENTS.md", "GEMINI.md", "COMMIT_GUIDE.md"]
         for df in doc_files:
             if os.path.exists(os.path.join(self.root_dir, df)):
                 self.file_list.addItem(df)
@@ -1111,7 +1227,7 @@ class MainWindow(QMainWindow):
     def __init__(self, root_dir):
         super().__init__()
         self.root_dir = root_dir
-        self.setWindowTitle("SimpleChatApp — Developer Workstation Suite")
+        self.setWindowTitle("TheComputer — Developer Workstation")
         self.resize(1280, 860)
         self.setStyleSheet(STYLESHEET)
 
@@ -1125,8 +1241,8 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout(central)
 
         header = QHBoxLayout()
-        title = QLabel("SIMPLE CHAT APP — DEV WORKSTATION SUITE")
-        title.setStyleSheet("font-size: 18px; font-weight: bold; color: #f0f0f5; letter-spacing: 1px;")
+        title = QLabel("THECOMPUTER — DEV WORKSTATION")
+        title.setStyleSheet("font-size: 18px; font-weight: bold; color: #eef1f6; letter-spacing: 1px;")
         header.addWidget(title)
 
         header.addStretch()

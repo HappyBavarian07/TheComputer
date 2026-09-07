@@ -129,6 +129,66 @@
       "notes": "Bridge between CPU hardware and software."
     },
     {
+      "id": "ISA-002",
+      "title": "Migrate to Native 64-Bit Architecture & Extended ISA",
+      "module": "isa",
+      "status": "IN_PROGRESS",
+      "priority": "HIGH",
+      "phase": "Phase 10.5 - 64-Bit Architecture Migration",
+      "dependencies": [
+        "CORE-005",
+        "ISA-001",
+        "CPU-001",
+        "CPU-003",
+        "ASM-001"
+      ],
+      "description": "Full architectural migration to native 64-bit system: 64-bit data words and registers, 64-bit fixed instruction format (8 bytes, PC += 8), 3-operand ALU operations (Rd = Rs1 OP Rs2), direct 32-bit embedded immediates, 8-bit opcode space (256 opcodes), 64-bit address space, expanded RAM capacity, hardware MUL/DIV, subroutines (CALL/RET), and sub-word memory access (LOADB, LOADH, LOADW, LOAD).",
+      "acceptance_criteria": "1. Word and Address expanded to 64-bit FixedWidthBits with deep bit-ownership invariants.\n2. WordAdderSubtractor, WordMultiplier, and WordDivider execute 64-bit arithmetic with zero allocations.\n3. 64-bit Instruction format [Opcode 8b][Flags/Cond 4b][Rd 6b][Rs1 6b][Rs2 6b][Imm32 32b] decoded by InstructionDecoder.\n4. CPU fetch-decode-execute advances PC by 8 and executes 3-operand operations and 64-bit register reads/writes.\n5. Sub-word memory access (LOADB/STOREB, LOADH/STOREH, LOADW/STOREW, LOAD/STORE 64-bit) implemented with little-endian encoding.\n6. Assembler lexer/parser/resolver/encoder updated for 3-operand syntax (e.g., 'add r3, r1, r2'), 32-bit direct immediates, and 64-bit binary emission.\n7. Test suite passes completely across all 64-bit core arithmetic, CPU execution, and assembler suites.",
+      "notes": "Fundamental hardware foundation upgrade. Supersedes 32-bit legacy constraints before disassembler and compiler pipeline.\n\nPROGRESS (reviewed 2026-09-04, branch ticket/ISA-002-64bit-migration; all changes uncommitted in the working tree). Tree COMPILES again. Roughly 65% complete.\n\nDONE:\n- Architecture: WORD_BITS=64, ADDRESS_BITS=32 (design deviation from blueprint's 64-bit address), GPR_COUNT=32, INSTRUCTION_BYTES=8.\n- Word 64-bit / Address 32-bit; getAsLong/set(Number) via FixedWidthBits.\n- WordAdderSubtractor: 64 stages.\n- WordMultiplier: fixed to widening 64x64 -> 128-bit (high:low); overflow = high half non-zero. execute(inA, inB, outProduct, overflowFlag). Covered by WordMultiplierTest.\n- OperandMapping + 8-bit OpCode (categories 0x0_..0x5_).\n- InstructionDecoder: now unpacks the 64-bit word (getAsLong, >>>56 opcode 0xFF, 6-bit reg fields, 32-bit imm). Cond decode commented out pending Condition enum.\n- RegisterFile 32x64; SpecialRegisters PC/SP=32-bit Address, IR=64-bit Word, flags Z/N/C/V.\n\nIN PROGRESS / PARTIAL:\n- WordIntegerDivider: added (restoring division, MSB->LSB, has a test). Zero-divisor guard is an empty 'if (isZero(inB)) {}' TODO - no exception thrown (BUG below).\n- Instruction record: rd/rs1/rs2/imm present, accessors now match Cpu. Still no cond field.\n- ALU: still only 8 ops (ADD/SUB/AND/OR/XOR/NOT/SHL/SHR); no MUL/DIV/MOD; multiplier/divider not wired; AluOp lacks MUL/DIV/MOD.\n- Cpu.step(): compiles against the new API but still legacy semantics - PC += 4 (must be +8), no predicate stage, no MUL/DIV/CALL/RET, no sub-word loads, 16-bit & 0xFFFF masks on LOADR/STORER.\n- Assembler: InstructionWordEncoder/OperandMapping + several tests modified; 3-operand grammar + 64-bit emission in progress, not verified.\n\nNOT STARTED:\n- Condition.java enum (predication).\n- Memory sub-word slicing (LOADB/LOADH/LOADW + STORE variants) in Ram/SystemBus.\n\nBUGS RAISED FOR DEVELOPER (source is Developer-owned; not edited by agent except the one-time WordMultiplier fix the Developer requested):\n1. FIXED - Address mask now 0xFFFFFFFFL (was & 0xFFFF).\n2. FIXED - WordMultiplier stub (widening 128-bit).\n3. WordIntegerDivider.execute: zero-divisor guard is an empty TODO; throw a real DivisionByZeroException before the loop.\n4. Cpu.step(): PC += 4 / SP +- 4 must become +8 / +-8 for 8-byte instructions.\n5. Cpu.step() LOADR/STORER: regValue.getAsInt() & 0xFFFF clamps addresses to 64 KiB; widen to 32-bit.",
+      "tags": [
+        "64BIT",
+        "ISA",
+        "CPU",
+        "ALU",
+        "MEMORY",
+        "ASSEMBLER"
+      ],
+      "blueprint": {
+        "goal": "Transform TheComputer into a native 64-bit architecture with 64-bit data registers, 64-bit fixed instructions, 3-operand instructions, 32-bit immediates, 256 opcode slots, 64-bit address space, and expanded memory capacity.",
+        "scope_in": [
+          "Data & Registers: Expand Word and Address to 64 bits (long backing); 32 GPRs of 64 bits (R0-R31); 64-bit PC (step +8), SP, and FLAGS.",
+          "Arithmetic circuits: 64-stage WordAdderSubtractor, 64-bit WordMultiplier, and 64-bit WordDivider in core.arithmetic with zero allocation.",
+          "Instruction Encoding (64 bits): [Opcode 8b][Cond 4b][Rd 6b][Rs1 6b][Rs2 6b][Imm32/Offset 32b][Reserved 2b].",
+          "3-Operand Format: Math ops support Rd = Rs1 OP Rs2 (non-destructive) alongside immediate forms (ADDI, SUBI).",
+          "ISA Extensions: MUL, DIV, MOD, CMP, CMPI, CALL, RET, JMP, conditional branches (JZ, JNZ, JG, JL, JGE, JLE), PUSH, POP, HALT.",
+          "Memory Sizing & Slicing: Sized RAM capacity (e.g. 1 MiB+), 8-byte word transfers, sub-word instructions: LOADB/STOREB (8b), LOADH/STOREH (16b), LOADW/STOREW (32b), LOAD/STORE (64b).",
+          "Assembler pipeline: Parser grammar for 3-operand instructions and 32-bit immediates; 8-byte machine word encoding."
+        ],
+        "scope_out": [
+          "Floating-point unit (FPU / IEEE-754) — separate phase.",
+          "SIMD / Vector extensions — separate phase.",
+          "Paging MMU (MEM-002) — builds on top of 64-bit memory layout."
+        ],
+        "topology": "core.word.Word (64b) + core.arithmetic (64b Adder, Multiplier, Divider) -> cpu.registers (64b) + cpu.alu (64b 3-operand) -> isa (64b InstructionDecoder, 8b Opcode) -> cpu.Cpu (Fetch 8 bytes, execute) -> memory.ram.Ram (64b bus) -> assembler (3-operand 64b encoder).",
+        "steps": [
+          "1. Update Architecture constants: WORD_BITS=64, ADDRESS_BITS=64, INSTRUCTION_BYTES=8, MEMORY_SIZE_BYTES expansion.",
+          "2. Expand Word and Address to 64 bits, update WordAdderSubtractor to 64 FullAdders, implement 64-bit WordMultiplier and WordDivider.",
+          "3. Upgrade RegisterFile and SpecialRegisters to 64-bit Words/Addresses.",
+          "4. Redesign 64-bit Instruction record, 8-bit OpCode enum, and InstructionDecoder for 3-operand format and 32-bit immediates.",
+          "5. Update Cpu execute engine: PC increment (+8), 3-operand ALU dispatch, CALL/RET, sub-word load/stores.",
+          "6. Update Memory (Ram/SystemBus) for 64-bit word read/write and sub-word masks.",
+          "7. Update Assembler (Lexer, Parser, Resolver, Encoder) for 3-operand grammar and 64-bit binary emission.",
+          "8. Update test suites and verify complete 64-bit end-to-end execution."
+        ],
+        "hazards": [
+          "Bit ownership: Ensure pre-allocated 64-bit arrays in Word/Address perform deep copies without aliasing.",
+          "Zero allocation: Pre-allocate 64-bit scratch buffers in ALU, Multiplier, and Divider.",
+          "Alignment: Instructions must align to 8-byte boundaries (PC % 8 == 0).",
+          "Little-endian byte slicing: Correct byte ordering across 1/2/4/8 byte memory operations."
+        ]
+      }
+    },
+    {
       "id": "CPU-003",
       "title": "Implement CPU Fetch-Decode-Execute Cycle",
       "module": "cpu",
@@ -173,21 +233,21 @@
     {
       "id": "SYS-001",
       "title": "Implement Motherboard & System Interconnect Host",
-      "module": "server",
+      "module": "system",
       "priority": "HIGH",
       "status": "DONE",
       "description": "Build Motherboard host assembling CPU, SystemBus, RamBusDevice, and RomBusDevice, and refactor BusDevice/AddressDecoder for relative address offset translation and reset lifecycle.",
       "acceptance_criteria": "1. AddressDecoder & BusDevice translate system addresses to device-relative offsets (systemAddress - startAddress).\n2. BusDevice defines default reset() method, and SystemBus.reset() resets signal lines and all attached devices.\n3. Ram supports sized capacity constructor (Ram(capacityBytes)).\n4. Motherboard instantiates SystemBus, CPU, and handles system lifecycle (powerOn, reset, stepSystem, runSystem).\n5. Complete unit test coverage.",
       "phase": "Phase 13 - System Host",
       "tags": [
-        "SERVER"
+        "SYSTEM"
       ]
     },
     {
       "id": "ASM-001",
       "title": "Implement Assembler (Source \u2192 Machine)",
       "module": "assembly",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "priority": "HIGH",
       "phase": "Phase 14 - Assembly Language",
       "dependencies": [
@@ -202,14 +262,45 @@
       "title": "Implement Disassembler (Machine \u2192 Assembly)",
       "module": "assembly",
       "status": "TODO",
-      "priority": "MEDIUM",
+      "priority": "HIGH",
       "phase": "Phase 16 - Disassembler",
       "dependencies": [
         "ISA-001"
       ],
       "description": "Convert machine code back to readable assembly for debugging.",
-      "acceptance_criteria": "1. Disassemble machine code produced by assembler.\n2. Preserve labels when possible.",
-      "notes": "Helps debugging and verification."
+      "acceptance_criteria": "1. Disassemble machine code produced by assembler.\n2. Preserve labels when possible.\n3. Round-trip: assemble \u2192 disassemble \u2192 assemble reproduces identical bytes for every ISA instruction.",
+      "notes": "Next ticket. Gates DBG-001 (the debugger's readable-assembly view is disassembly) and backs the GUI's Live Disassembly panel, which currently decodes ad-hoc.",
+      "blueprint": {
+        "goal": "A disassembler that decodes 32-bit machine words back into canonical assembly (mnemonic + operands) \u2014 the inverse of the assembler's encoder \u2014 driven by the same ISA opcode/operand-format tables so encode and decode can never drift.",
+        "scope_in": [
+          "Decode one machine word into a structured instruction (opcode, operands with roles, addressing mode).",
+          "Render a decoded instruction to canonical assembly text matching the assembler's own syntax.",
+          "Disassemble a buffer/range into address-annotated (address, word, text) listing rows.",
+          "Reuse ISA-001's opcode + operand-format definitions as the single source of truth for both directions.",
+          "Deterministic, non-throwing handling of unknown/illegal encodings (emit a data directive / .word, never crash)."
+        ],
+        "scope_out": [
+          "Full symbol/label reconstruction (best-effort only; real symbolization needs a symbol table / debug info \u2014 future).",
+          "Control-flow or source-level reconstruction.",
+          "GUI and debugger wiring (they consume this module).",
+          "Decoding privileged/interrupt instructions from ADV-001 (not yet defined)."
+        ],
+        "topology": "isa (opcode & operand-format tables) -> assembly.disassembler -> consumed by debugger + gui. One-way deps; the disassembler reads ONLY ISA definitions and raw words, never live CPU/memory runtime state. It is the mirror image of the assembler encoder and should share its ISA table.",
+        "steps": [
+          "Confirm/expose an ISA-001 opcode+operand-format table usable in both directions (encode and decode).",
+          "Define decode(word) -> DecodedInstruction (opcode, ordered operands with roles/widths).",
+          "Define render(DecodedInstruction) -> assembly string in the assembler's canonical syntax.",
+          "Add range disassembly producing (address, word, text) rows for listings/the GUI panel.",
+          "Handle illegal/unknown opcodes deterministically as a data directive; no exceptions on arbitrary bytes.",
+          "Round-trip tests over every ISA instruction: text -> encode -> bytes -> disassemble -> encode again == identical bytes."
+        ],
+        "hazards": [
+          "Encode/decode drift: the killer risk \u2014 the disassembler MUST share ISA-001's opcode table, not hardcode its own.",
+          "Immediate sign-extension and operand bit-widths must match the encoder exactly.",
+          "Endianness / word order must match the assembler and memory layout.",
+          "Unknown opcodes must degrade gracefully \u2014 the debugger will feed it arbitrary memory bytes, not just valid programs."
+        ]
+      }
     },
     {
       "id": "DBG-001",
@@ -221,11 +312,43 @@
       "dependencies": [
         "CPU-003",
         "MEM-001",
-        "ISA-001"
+        "ISA-001",
+        "DIS-001"
       ],
       "description": "Provide step execution, breakpoints, register/memory/stack views, and basic watch expressions.",
       "acceptance_criteria": "1. Step through instructions and inspect registers & memory.\n2. Set/clear breakpoints.\n3. Present human-readable assembly alongside machine code.",
-      "notes": "Essential for development productivity."
+      "notes": "Essential for development productivity. Formalizes the ad-hoc step/run/watch logic currently living in the vibecoded GUI workbench into a real module the GUI can consume.",
+      "blueprint": {
+        "goal": "A headless debugger core that drives the existing CPU/Motherboard through controlled execution (single-step, run-to-halt, run-to-breakpoint) and exposes read-only inspection of registers, flags, memory, and the stack \u2014 with no debug logic living in the GUI.",
+        "scope_in": [
+          "Debugger controller wrapping Motherboard/Cpu lifecycle (attach, step, run, pause, reset).",
+          "Breakpoint set keyed by instruction address; execution halts before executing a break address.",
+          "Read-only inspection snapshots: register file, PC/SP/IR, ALU flags (Z/N/C/V), memory window, stack window.",
+          "Watch expressions over registers and absolute addresses (the GUI Watch panel already models this).",
+          "Human-readable disassembly of the current instruction (delegate to DIS-001 when available; interim: local decode)."
+        ],
+        "scope_out": [
+          "GUI wiring (separate; GUI consumes this module).",
+          "Source-level / symbolic debugging (needs debug info from the compiler chain).",
+          "Reverse execution, conditional breakpoints, data watchpoints (future).",
+          "MMU/permission traps (owned by MEM-002)."
+        ],
+        "topology": "gui -> debugger -> cpu -> memory -> isa. Debugger sits above the CPU cycle, observing via existing read APIs; it must never mutate architectural state except through the CPU's own step entrypoint. Layer isolation preserved (one-way deps).",
+        "steps": [
+          "Define a Debugger controller interface: attach(Motherboard), step(), run(maxSteps), addBreakpoint(addr), removeBreakpoint(addr), state().",
+          "Introduce an immutable inspection snapshot type (registers, special regs, flags, decoded current instruction) built from existing getters \u2014 no new aliasing of Bit objects.",
+          "Implement the run loop as repeated single-steps guarded by a breakpoint check on PC before each fetch; stop on HALT, breakpoint hit, or step budget.",
+          "Add watch-expression evaluation: parse the same targets the GUI accepts (rN, sp, pc, 0xADDR) and resolve against the snapshot.",
+          "Wire disassembly of the current instruction; keep a seam so DIS-001 can replace the interim decoder.",
+          "Cover with unit tests: breakpoint halts before the target executes, step advances exactly one instruction, snapshots reflect post-step state."
+        ],
+        "hazards": [
+          "Bit ownership: snapshots must deep-copy values, never share Bit objects with the live register file/memory.",
+          "Zero-allocation contract in the hot path stays in core/cpu \u2014 the debugger observes, it does not run inside the ALU/adder inner loops.",
+          "Breakpoint semantics: halt BEFORE executing the break address (pre-fetch), not after, or stepping past a breakpoint becomes ambiguous.",
+          "Run budget to avoid infinite loops on programs without HALT."
+        ]
+      }
     },
     {
       "id": "IO-001",
@@ -403,13 +526,116 @@
       "title": "Implement assembly CLI (skeleton)",
       "module": "assembly",
       "priority": "MEDIUM",
-      "status": "TODO",
+      "status": "DONE",
       "description": "Create CLI entrypoint for assembling source files to binary images. Tasks: add CLI module, parse args (input, output), wire parser+resolver+encoder to produce output file, add basic unit tests for CLI argument parsing and dry-run mode.",
       "phase": "Phase 14 - Assembly Language",
       "tags": [
         "ASSEMBLY"
       ],
       "dependencies": []
+    },
+    {
+      "id": "CACHE-001",
+      "title": "Implement CPU Cache Hierarchy (L1 -> L2 -> L3)",
+      "module": "memory",
+      "status": "TODO",
+      "priority": "HIGH",
+      "phase": "Phase 15 - Cache Hierarchy",
+      "dependencies": [
+        "MEM-001",
+        "SYS-001"
+      ],
+      "description": "Cache layer between CPU and main memory to cut access latency. Start with one simple L1; architected so L2/L3 chain in without touching CPU or RAM.",
+      "acceptance_criteria": "1. L1 read hit/miss + fill works; results identical to running without cache.\n2. Hit/miss statistics exposed.\n3. Transparent: a program's final state is byte-identical with and without the cache.\n4. Later phases add L2, L3, set-associativity, write-back, LRU.",
+      "notes": "Start simple (single direct-mapped write-through L1), grow to full L1/L2/L3.",
+      "tags": [
+        "MEMORY"
+      ],
+      "blueprint": {
+        "goal": "A cache hierarchy on the CPU<->memory path that reduces effective memory latency, beginning with a single simple L1 and structured so L2 and L3 slot in as a chain with no changes to the CPU or RAM.",
+        "scope_in": [
+          "Phase 1: single L1, direct-mapped, write-through + no-write-allocate.",
+          "Tag/index/offset decode from a 16-bit Address; line fill on read miss.",
+          "Same read/write(Address, Word) interface as a bus device so it is transparent to the CPU.",
+          "Hit/miss counters and a simple stats view.",
+          "Optional wiring into Motherboard between CPU and SystemBus.",
+          "Later phases: L2 then L3 by chaining; set-associativity + LRU; write-back/write-allocate."
+        ],
+        "scope_out": [
+          "Cross-core cache coherence (owned by the multicore ticket, later phase).",
+          "Prefetching / victim caches.",
+          "TLB / address translation (MEM-002)."
+        ],
+        "topology": "cpu -> cache(L1[-L2[-L3]]) -> systembus -> ram. Each cache level implements the same read/write(Address, Word) contract as the bus and holds a reference to the next level; chaining levels needs no CPU change. Cache is transparent: identical observable results with or without it.",
+        "steps": [
+          "Define a CacheLevel abstraction: read(Address, Word dst), write(Address, Word), backed by the next level (cache or bus).",
+          "Implement direct-mapped L1: partition Address into tag/index/offset; on read miss, fill the line from the next level; on write, write-through to next level.",
+          "Preallocate line storage (owned Word slots) so steady-state is zero-allocation.",
+          "Expose hit/miss stats.",
+          "Optionally insert L1 between CPU and SystemBus in Motherboard behind a flag.",
+          "Verify transparency: run programs with and without cache, assert byte-identical final memory + registers.",
+          "Later: parametrize associativity + replacement (LRU) + write-back; add L2/L3 by chaining."
+        ],
+        "hazards": [
+          "Bit ownership: cache lines must deep-copy Word/Bit values, never alias RAM's or the CPU's Bit objects.",
+          "16-bit Address partition (tag/index/offset) must be exact and total.",
+          "Write-through vs write-back correctness and ordering to the next level.",
+          "Steady-state zero allocation: preallocate lines, no per-access heap objects.",
+          "Transparency is the invariant: cache must never change program-visible results."
+        ]
+      }
+    },
+    {
+      "id": "MC-001",
+      "title": "Implement Multicore CPU (SMP, N cores, shared bus)",
+      "module": "cpu",
+      "status": "TODO",
+      "priority": "HIGH",
+      "phase": "Phase 19 - Multicore",
+      "dependencies": [
+        "CPU-003",
+        "SYS-001"
+      ],
+      "description": "Multiple CPU cores sharing one SystemBus + RAM (SMP), configurable core count (>2). Deterministic stepping first; parallel + cache coherence later. Includes step-path optimization.",
+      "acceptance_criteria": "1. Motherboard hosts N cores (N configurable, >2) sharing one bus + RAM.\n2. Each core has independent register file / PC / SP; no shared mutable Bit/register state.\n3. System step advances each non-halted core one instruction deterministically; run stops when all cores halt.\n4. Per-core state inspectable (for GUI).\n5. Step path allocation-free (perf).",
+      "notes": "Start deterministic sequential stepping across cores; cache coherence (MESI) is a later phase gated on CACHE-001. Step optimization required: the CPU step path must be zero-allocation so N cores x many steps stays fast.",
+      "tags": [
+        "CPU"
+      ],
+      "blueprint": {
+        "goal": "Turn the single-core machine into an SMP multicore: N CPU cores (configurable, more than 2) sharing one SystemBus and RAM, stepped deterministically, as the foundation for later cache coherence and parallel execution.",
+        "scope_in": [
+          "Generalize Motherboard from one Cpu to a Cpu[] (configurable N).",
+          "Each core owns its own SpecialRegisters + RegisterFile; only the bus + RAM are shared.",
+          "stepSystem() advances each non-halted core one instruction per tick (round-robin / lockstep).",
+          "runSystem() runs until all cores halt; per-core HALT tracked.",
+          "Expose per-core state for the GUI.",
+          "Step-path optimization: eliminate per-step heap allocation so N cores scale."
+        ],
+        "scope_out": [
+          "Cache coherence / MESI (later phase, depends on CACHE-001).",
+          "True OS-thread parallelism (start with deterministic sequential stepping).",
+          "Inter-core interrupts / IPIs (ADV-001).",
+          "Atomics / locks / memory barriers (later)."
+        ],
+        "topology": "motherboard -> Cpu[0..N-1] -> shared SystemBus -> RAM. Cores hold independent register/PC/SP state; memory is shared. Later: per-core L1 cache (CACHE-001) + a coherence protocol (MESI) arbitrated over the shared bus.",
+        "steps": [
+          "Refactor Motherboard to hold and manage a Cpu[] with lifecycle (powerOn/reset/step/run) over all cores.",
+          "Confirm each Cpu instance owns exclusive register/special-register state (no shared mutable Bit objects across cores).",
+          "Implement deterministic stepSystem(): iterate cores in fixed order, step each non-halted core once.",
+          "Implement runSystem(): loop stepSystem() until every core is halted (with a step budget).",
+          "Optimize the single-core step path to zero-allocation (reuse preallocated Word/Address scratch) so N cores stay fast.",
+          "Expose per-core snapshots for the GUI.",
+          "Later phase: add per-core L1 + MESI coherence over the shared bus."
+        ],
+        "hazards": [
+          "No shared Bit/register objects across cores - each core's state must be exclusively owned (ownership invariant).",
+          "Deterministic step order required while stepping is sequential; document it before any real parallelism.",
+          "Shared-memory races appear once execution is truly parallel - keep sequential first, add synchronization deliberately.",
+          "Performance amplification: N cores x steps multiplies any per-step allocation - the step path MUST be zero-allocation.",
+          "GUI must scale to N cores without per-step full rebuilds (ties to the GUI memory-view perf fix)."
+        ]
+      }
     }
   ]
 }

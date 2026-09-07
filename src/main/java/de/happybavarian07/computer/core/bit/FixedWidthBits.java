@@ -81,7 +81,7 @@ public class FixedWidthBits {
             );
         }
 
-        return Long.parseLong(getAsString(), 2);
+        return Long.parseUnsignedLong(getAsString(), 2);
     }
 
     public int getAsInt() {

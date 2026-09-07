@@ -1,6 +1,8 @@
 package de.happybavarian07.computer.cpu.alu;
 
 import de.happybavarian07.computer.core.arithmetic.WordAdderSubtractor;
+import de.happybavarian07.computer.core.arithmetic.WordIntegerDivider;
+import de.happybavarian07.computer.core.arithmetic.WordMultiplier;
 import de.happybavarian07.computer.core.bit.Bit;
 import de.happybavarian07.computer.core.logic.LogicGates;
 import de.happybavarian07.computer.core.word.Word;
@@ -13,13 +15,18 @@ import de.happybavarian07.computer.util.Architecture;
 public class Alu {
     private final int WORD_SIZE = Architecture.WORD_BITS;
     private final WordAdderSubtractor wordAdderSubtractor;
-    private final Bit scratchAdderCarry;
-    private final Bit scratchAdderOverflow;
+    private final WordMultiplier wordMultiplier;
+    private final WordIntegerDivider wordIntegerDivider;
+    private final Word scratchQuotient;
+    private final Word scratchRemainder;
 
     public Alu() {
         wordAdderSubtractor = new WordAdderSubtractor();
-        scratchAdderCarry = new Bit(false);
-        scratchAdderOverflow = new Bit(false);
+        wordMultiplier = new WordMultiplier();
+        wordIntegerDivider = new WordIntegerDivider();
+
+        scratchQuotient = new Word();
+        scratchRemainder = new Word();
     }
 
     // OpCode (for now): ADD, SUB, AND, OR, XOR, NOT, SHL, SHR
@@ -27,12 +34,15 @@ public class Alu {
         switch (aluOp) {
             case ADD -> add(inA, inB, outResult, flagZ, flagN, flagC, flagV);
             case SUB -> sub(inA, inB, outResult, flagZ, flagN, flagC, flagV);
+            case MUL -> mul(inA, inB, outResult, flagZ, flagN, flagC, flagV);
+            case DIV -> div(inA, inB, outResult, flagZ, flagN, flagC, flagV);
+            case MOD -> mod(inA, inB, outResult, flagZ, flagN, flagC, flagV);
             case AND -> and(inA, inB, outResult, flagZ, flagN, flagC, flagV);
             case OR -> or(inA, inB, outResult, flagZ, flagN, flagC, flagV);
             case XOR -> xor(inA, inB, outResult, flagZ, flagN, flagC, flagV);
             case NOT -> not(inA, outResult, flagZ, flagN, flagC, flagV);
-            case SHL -> shl(inA, outResult, flagZ, flagN, flagC, flagV);
-            case SHR -> shr(inA, outResult, flagZ, flagN, flagC, flagV);
+            case SHL -> shl(inA, inB, outResult, flagZ, flagN, flagC, flagV);
+            case SHR -> shr(inA, inB, outResult, flagZ, flagN, flagC, flagV);
         }
     }
 
@@ -44,6 +54,24 @@ public class Alu {
 
     public void sub(Word inA, Word inB, Word outResult, Bit flagZ, Bit flagN, Bit flagC, Bit flagV) {
         wordAdderSubtractor.execute(inA, inB, true, outResult, flagC, flagV);
+        updateZeroFlag(outResult, flagZ);
+        updateNegativeFlag(outResult, flagN);
+    }
+
+    public void mul(Word inA, Word inB, Word outResult, Bit flagZ, Bit flagN, Bit flagC, Bit flagV) {
+        wordMultiplier.execute(inA, inB, outResult, flagV);
+        updateZeroFlag(outResult, flagZ);
+        updateNegativeFlag(outResult, flagN);
+    }
+
+    public void div(Word inA, Word inB, Word outResult, Bit flagZ, Bit flagN, Bit flagC, Bit flagV) {
+        wordIntegerDivider.execute(inA, inB, outResult, scratchRemainder);
+        updateZeroFlag(outResult, flagZ);
+        updateNegativeFlag(outResult, flagN);
+    }
+
+    public void mod(Word inA, Word inB, Word outResult, Bit flagZ, Bit flagN, Bit flagC, Bit flagV) {
+        wordIntegerDivider.execute(inA, inB, scratchQuotient, outResult);
         updateZeroFlag(outResult, flagZ);
         updateNegativeFlag(outResult, flagN);
     }
@@ -88,27 +116,39 @@ public class Alu {
         flagV.set(false);
     }
 
-    public void shl(Word inA, Word outResult, Bit flagZ, Bit flagN, Bit flagC, Bit flagV) {
-        flagC.set(inA.get(0).getAsBool());
+    public void shl(Word inA, Word inB, Word outResult, Bit flagZ, Bit flagN, Bit flagC, Bit flagV) {
+        int count = inB.getAsInt() & (WORD_SIZE - 1);
+        outResult.set(inA.getAsArray());
 
-        for (int i = 1; i < WORD_SIZE; i++) {
-            outResult.set(i - 1, inA.get(i));
+        boolean carry = false;
+        for (int s = 0; s < count; s++) {
+            carry = outResult.get(0).getAsBool();
+            for (int i = 1; i < WORD_SIZE; i++) {
+                outResult.set(i - 1, outResult.get(i).getAsBool());
+            }
+            outResult.set(WORD_SIZE - 1, false);
         }
 
-        outResult.set(WORD_SIZE - 1, false);
+        flagC.set(carry);
         updateZeroFlag(outResult, flagZ);
         updateNegativeFlag(outResult, flagN);
         flagV.set(false);
     }
 
-    public void shr(Word inA, Word outResult, Bit flagZ, Bit flagN, Bit flagC, Bit flagV) {
-        flagC.set(inA.get(WORD_SIZE - 1).getAsBool());
+    public void shr(Word inA, Word inB, Word outResult, Bit flagZ, Bit flagN, Bit flagC, Bit flagV) {
+        int count = inB.getAsInt() & (WORD_SIZE - 1);
+        outResult.set(inA.getAsArray());
 
-        for (int i = 0; i < WORD_SIZE - 1; i++) {
-            outResult.set(i + 1, inA.get(i));
+        boolean carry = false;
+        for (int s = 0; s < count; s++) {
+            carry = outResult.get(WORD_SIZE - 1).getAsBool();
+            for (int i = WORD_SIZE - 1; i > 0; i--) {
+                outResult.set(i, outResult.get(i - 1).getAsBool());
+            }
+            outResult.set(0, false);
         }
 
-        outResult.set(0, false);
+        flagC.set(carry);
         updateZeroFlag(outResult, flagZ);
         updateNegativeFlag(outResult, flagN);
         flagV.set(false);

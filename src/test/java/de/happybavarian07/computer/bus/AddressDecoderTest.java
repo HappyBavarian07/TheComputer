@@ -73,11 +73,11 @@ class AddressDecoderTest {
         }
 
         @Override
-        public void read(Address address, Word destination) {
+        public void read(Address address, Word destination, int byteCount) {
         }
 
         @Override
-        public void write(Address address, Word source) {
+        public void write(Address address, Word source, int byteCount) {
         }
 
         @Override
