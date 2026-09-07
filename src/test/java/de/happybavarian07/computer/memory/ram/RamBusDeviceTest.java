@@ -30,8 +30,8 @@ class RamBusDeviceTest {
         address.set(0x0100);
         wordSource.set(0x01234567);
 
-        ramBusDevice.write(address, wordSource);
-        ramBusDevice.read(address, wordDestination);
+        ramBusDevice.write(address, wordSource, 8);
+        ramBusDevice.read(address, wordDestination, 8);
 
         assertEquals(0x01234567, wordDestination.getAsInt());
     }

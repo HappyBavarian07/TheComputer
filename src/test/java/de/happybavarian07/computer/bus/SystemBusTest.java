@@ -36,8 +36,8 @@ class SystemBusTest {
         address.set(0x1000);
         wordSource.set(0xDEADBEEF);
 
-        systemBus.write(address, wordSource);
-        systemBus.read(address, wordDestination);
+        systemBus.writeWord(address, wordSource);
+        systemBus.readWord(address, wordDestination);
 
         assertEquals((int) 0xDEADBEEFL, wordDestination.getAsInt());
     }
@@ -47,8 +47,8 @@ class SystemBusTest {
         address.set(0xF000);
         wordSource.set(0x12345678);
 
-        assertThrows(BusFaultException.class, () -> systemBus.read(address, wordDestination));
-        assertThrows(BusFaultException.class, () -> systemBus.write(address, wordSource));
+        assertThrows(BusFaultException.class, () -> systemBus.readWord(address, wordDestination));
+        assertThrows(BusFaultException.class, () -> systemBus.writeWord(address, wordSource));
     }
 
     @Test
@@ -57,7 +57,7 @@ class SystemBusTest {
         systemBus.registerDevice(new Address(0xF000), new Address(0xF7FF), romDevice);
 
         address.set(0xF000);
-        systemBus.read(address, wordDestination);
+        systemBus.readWord(address, wordDestination);
         assertEquals(0xCAFEBABE, wordDestination.getAsInt());
     }
 
@@ -70,8 +70,8 @@ class SystemBusTest {
             address.set(randomAddr);
             wordSource.set(randomVal);
 
-            systemBus.write(address, wordSource);
-            systemBus.read(address, wordDestination);
+            systemBus.writeWord(address, wordSource);
+            systemBus.readWord(address, wordDestination);
 
             assertEquals(randomVal, wordDestination.getAsInt(), "SystemBus Fuzzing failed at address " + randomAddr);
         }
@@ -81,22 +81,22 @@ class SystemBusTest {
     void testSystemBusReset() {
         address.set(0x1000);
         wordSource.set(0x42);
-        systemBus.write(address, wordSource);
+        systemBus.writeWord(address, wordSource);
 
         systemBus.reset();
 
-        systemBus.read(address, wordDestination);
+        systemBus.readWord(address, wordDestination);
         assertEquals(0, wordDestination.getAsInt());
     }
 
     private static class MockRomDevice implements BusDevice {
         @Override
-        public void read(Address address, Word destination) {
+        public void read(Address address, Word destination, int byteCount) {
             destination.set(0xCAFEBABE);
         }
 
         @Override
-        public void write(Address address, Word source) {
+        public void write(Address address, Word source, int byteCount) {
             throw new UnsupportedOperationException("Cannot write to ROM");
         }
 

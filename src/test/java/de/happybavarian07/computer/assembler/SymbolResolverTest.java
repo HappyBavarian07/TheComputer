@@ -17,6 +17,7 @@ import de.happybavarian07.computer.assembler.resolver.model.ResolvedOperand;
 import de.happybavarian07.computer.assembler.resolver.model.ResolvedProgram;
 import de.happybavarian07.computer.assembler.resolver.model.ResolvedStatement;
 import de.happybavarian07.computer.exceptions.assembler.ResolutionException;
+import de.happybavarian07.computer.util.Architecture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -47,7 +48,7 @@ public class SymbolResolverTest {
         List<Integer> addressList = new ArrayList<>(p1.statementAddresses().values());
 
         assertEquals(0, p1.symbolTable().getLocation("start"));
-        assertTrue(addressList.contains(4));
+        assertTrue(addressList.contains(Architecture.INSTRUCTION_BYTES));
     }
 
     @Test
@@ -79,7 +80,7 @@ public class SymbolResolverTest {
         assertInstanceOf(InstructionStatement.class, rs.sourceStatement());
         List<ResolvedOperand> ops = rs.operands();
         assertEquals(1, ops.size());
-        assertEquals(4, ops.getFirst().resolvedNumericValue());
+        assertEquals(8, ops.getFirst().resolvedNumericValue());
     }
 
     @Test

@@ -20,7 +20,7 @@ public class InstructionWordEncoderTest {
     void reg_out_of_range_throws() {
         InstructionWordEncoder encoder = new InstructionWordEncoder();
         // instruction statement stub
-        InstructionStatement stmt = new InstructionStatement("MOV", List.of(), new SourceSpan("file",1,1,1,3));
+        InstructionStatement stmt = new InstructionStatement("MOV", "AL", List.of(), new SourceSpan("file",1,1,1,3));
 
         Operand op = new Operand(OperandKind.REGISTER, "r99", null, new SourceSpan("file",1,1,1,3));
         ResolvedOperand ro = new ResolvedOperand(op, OperandKind.REGISTER, op.text(), 99);
@@ -32,7 +32,7 @@ public class InstructionWordEncoderTest {
     @Test
     void imm_out_of_range_throws() {
         InstructionWordEncoder encoder = new InstructionWordEncoder();
-        InstructionStatement stmt = new InstructionStatement("LOAD", List.of(), new SourceSpan("file",1,1,1,4));
+        InstructionStatement stmt = new InstructionStatement("LOAD", "AL", List.of(), new SourceSpan("file",1,1,1,4));
 
         Operand opReg = new Operand(OperandKind.REGISTER, "r1", null, new SourceSpan("file",1,1,1,4));
         ResolvedOperand roReg = new ResolvedOperand(opReg, OperandKind.REGISTER, opReg.text(), 1);

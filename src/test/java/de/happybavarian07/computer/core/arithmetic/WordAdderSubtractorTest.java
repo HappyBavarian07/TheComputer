@@ -61,10 +61,10 @@ class WordAdderSubtractorTest {
 
     @Test
     void testSignedOverflowOnAddition() {
-        inA.set(Integer.MIN_VALUE);
+        inA.set(Long.MIN_VALUE);
         inB.set(1);
         adder.execute(inA, inB, true, outResult, outCarry, outOverflow);
-        assertEquals(Integer.MAX_VALUE, outResult.getAsInt(), "Result is wrong.");
+        assertEquals(Long.MAX_VALUE, outResult.getAsLong(), "Result is wrong.");
         assertTrue(outOverflow.getAsBool(), "Overflow Bit is wrong.");
     }
 

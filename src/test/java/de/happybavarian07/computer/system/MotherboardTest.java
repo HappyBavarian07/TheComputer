@@ -25,17 +25,25 @@ class MotherboardTest {
         motherboard.powerOn();
     }
 
-    private void writeInstruction(int byteAddress, OpCode opCode, int regDest, int regSource, int immediate) {
+    private void writeInstruction(int byteAddress, OpCode opCode, int regDest, int regSource1, int regSource2, int immediate) {
         addressBuffer.set(byteAddress);
-        int rawInstruction = (opCode.binaryValue() << 26) | ((regDest & 0x1F) << 21) | ((regSource & 0x1F) << 16) | (immediate & 0xFFFF);
+        long rawInstruction = ((opCode.binaryValue().longValue() & 0xFFL) << 56)
+                | ((regDest & 0x3FL) << 46)
+                | ((regSource1 & 0x3FL) << 40)
+                | ((regSource2 & 0x3FL) << 34)
+                | (immediate & 0xFFFFFFFFL);
         wordBuffer.set(rawInstruction);
-        motherboard.getCpu().getSystemBus().write(addressBuffer, wordBuffer);
+        motherboard.getCpu().getSystemBus().writeWord(addressBuffer, wordBuffer);
+    }
+
+    private void writeInstruction(int byteAddress, OpCode opCode, int regDest, int regSource1, int immediate) {
+        writeInstruction(byteAddress, opCode, regDest, regSource1, 0, immediate);
     }
 
     @Test
     void testMotherboardPowerOnAndRun() {
-        writeInstruction(0x0000, OpCode.LOAD, 1, 0, 0x99);
-        writeInstruction(0x0004, OpCode.HALT, 0, 0, 0);
+        writeInstruction(0x0000, OpCode.MOVI, 1, 0, 0x99);
+        writeInstruction(0x0008, OpCode.HALT, 0, 0, 0);
 
         motherboard.runSystem();
 

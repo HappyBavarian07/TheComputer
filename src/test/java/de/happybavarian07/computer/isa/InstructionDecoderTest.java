@@ -29,47 +29,56 @@ class InstructionDecoderTest {
         decoder.decode(word, instruction);
 
         assertEquals(OpCode.NOP, instruction.opCode());
+        assertEquals(Condition.AL, instruction.condition());
         assertEquals(0, instruction.regDestIndex());
-        assertEquals(0, instruction.regSourceIndex());
+        assertEquals(0, instruction.regSource1Index());
+        assertEquals(0, instruction.regSource2Index());
         assertEquals(0, instruction.immediateAddr());
     }
 
     @Test
     void testDecodeAddInstruction() {
-        // OpCode.ADD = 0x04 (bits 31-26)
-        // Rd = 5 (bits 25-21)
-        // Rs = 10 (bits 20-16)
-        // Immediate = 0x1234 (bits 15-0)
-        int encoded = (0x10 << 26) | (5 << 21) | (10 << 16) | 0x1234;
+        // OpCode.ADD = 0x10 (bits 63-56)
+        // Condition.EQ = 0x01 (bits 55-52)
+        // Rd = 5 (bits 51-46)
+        // Rs1 = 10 (bits 45-40)
+        // Rs2 = 20 (bits 39-34)
+        // Reserved = 0 (bits 33-32)
+        // Immediate = 0x1234 (bits 31-0)
+        long encoded = (0x10L << 56) | (0x01L << 52) | (5L << 46) | (10L << 40) | (20L << 34) | 0x1234L;
         word.set(encoded);
 
         decoder.decode(word, instruction);
 
         assertEquals(OpCode.ADD, instruction.opCode());
+        assertEquals(Condition.EQ, instruction.condition());
         assertEquals(5, instruction.regDestIndex());
-        assertEquals(10, instruction.regSourceIndex());
+        assertEquals(10, instruction.regSource1Index());
+        assertEquals(20, instruction.regSource2Index());
         assertEquals(0x1234, instruction.immediateAddr());
     }
 
     @Test
     void testDecodeAllOpcodes() {
         for (OpCode op : OpCode.values()) {
-            int encoded = (op.binaryValue() << 26) | (31 << 21) | (15 << 16) | 0xFFFF;
+            long encoded = (op.binaryValue().longValue() << 56) | (0x0L << 52) | (31L << 46) | (15L << 40) | (10L << 34) | 0xFFFFL;
             word.set(encoded);
 
             decoder.decode(word, instruction);
 
             assertEquals(op, instruction.opCode());
+            assertEquals(Condition.AL, instruction.condition());
             assertEquals(31, instruction.regDestIndex());
-            assertEquals(15, instruction.regSourceIndex());
+            assertEquals(15, instruction.regSource1Index());
+            assertEquals(10, instruction.regSource2Index());
             assertEquals(0xFFFF, instruction.immediateAddr());
         }
     }
 
     @Test
     void testInvalidOpcodeThrows() {
-        // 0x1F (31) is unmapped in OpCode enum
-        int invalidEncoded = (0x1F << 26);
+        // 0xEE is unmapped in OpCode enum
+        long invalidEncoded = (0xEEL << 56);
         word.set(invalidEncoded);
 
         assertThrows(IllegalInstructionException.class, () -> decoder.decode(word, instruction));
