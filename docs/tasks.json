@@ -258,6 +258,51 @@
       "notes": "Required for first programs."
     },
     {
+      "id": "PERF-001",
+      "title": "CPU Execution Profiler & Step-Path Performance Optimization",
+      "module": "cpu",
+      "status": "TODO",
+      "priority": "HIGH",
+      "phase": "Phase 12.5 - Performance & Profiling",
+      "dependencies": [
+        "CPU-003",
+        "ISA-002"
+      ],
+      "description": "Build high-resolution CPU execution profiler tracking cycle time per stage (fetch, decode, condition test, ALU/memory execute, PC update). Identify bottlenecks and optimize critical hot path to achieve >5-10 MIPS simulated throughput.",
+      "acceptance_criteria": "1. ExecutionProfiler records stage breakdown (nanoseconds & percentages) for fetch, decode, ALU, and memory stages.\n2. Profiler report exposed via CLI benchmark harness and GUI workbench.\n3. Eliminate hot-path bottlenecks (e.g. replacing slow Bit-array traversals in getAsLong/set/updateZeroFlag with fast long/primitive operations while preserving Bit invariants).\n4. Simulated CPU core throughput reaches >5.0 MIPS on standard benchmark loop.",
+      "notes": "Target for immediate sprint alignment.",
+      "tags": [
+        "CPU",
+        "PROFILER",
+        "PERF",
+        "OPTIMIZATION"
+      ],
+      "blueprint": {
+        "goal": "A non-allocating CPU execution profiler to measure precise cycle times per execution stage and eliminate hot-path overhead across the simulated pipeline.",
+        "scope_in": [
+          "Stage-level timing instrumentation (Fetch, Decode, Condition, Execute, Bus, Writeback).",
+          "Fast-path optimizations for bit conversions (long-backed fast conversion, O(1) zero-flag checks).",
+          "Automated benchmark harness reporting MIPS and stage breakdown.",
+          "GUI profiler overlay / report dialog in ComputerWorkbench."
+        ],
+        "scope_out": [
+          "JIT translation to native x86 machine code.",
+          "Multi-threaded CPU cycle execution (owned by MC-001)."
+        ],
+        "topology": "cpu.profiler.ExecutionProfiler -> hooked into cpu.Cpu.step() -> reported by bench.CoreThroughputBench and gui.ComputerWorkbench.",
+        "steps": [
+          "1. Implement ExecutionProfiler collecting stage timings and per-opcode frequency.",
+          "2. Profile hot loop to identify exact bottleneck fractions.",
+          "3. Optimize Bit-array <-> long conversions in FixedWidthBits/Alu/Cpu.",
+          "4. Benchmark and verify >5-10x throughput improvement."
+        ],
+        "hazards": [
+          "Preserve bit-ownership invariants and zero-allocation contract on the fast path.",
+          "Profiling overhead must be negligible or disableable during steady-state execution."
+        ]
+      }
+    },
+    {
       "id": "DIS-001",
       "title": "Implement Disassembler (Machine \u2192 Assembly)",
       "module": "assembly",
