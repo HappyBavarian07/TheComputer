@@ -90,7 +90,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ComputerWorkbench extends JFrame {
-    private static final List<String> DEFAULT_EXAMPLES = List.of("math-demo", "loop-demo", "stack-demo", "sum-loop-demo", "ram-multiplication-demo");
+    private static final List<String> DEFAULT_EXAMPLES = List.of("math-demo", "loop-demo", "stack-demo", "sum-loop-demo", "ram-multiplication-demo", "core-benchmark-demo");
     private static final List<String> COMPLETION_ITEMS = List.of(
             ".word", ".byte", ".ascii", ".org",
             "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "pc", "sp", "ir", "flags"
@@ -703,13 +703,16 @@ public class ComputerWorkbench extends JFrame {
             }
         }
         coreClockLabel.setText("Core: benchmarking...");
+        System.out.println("[BENCHMARK] Starting core throughput measurement...");
         Thread worker = new Thread(() -> {
             final int stepCap = 5_000_000;
             final int startSp = Architecture.STACK_BASE_ADDRESS;
             Motherboard bench = new Motherboard();
+            System.out.println("[BENCHMARK] Warming up JIT compiler (3 runs)...");
             for (int w = 0; w < 3; w++) {
                 runProgramOnce(bench, image, startSp, stepCap);
             }
+            System.out.println("[BENCHMARK] Running timed execution window (300 ms target)...");
             long steps = 0;
             boolean capped = false;
             long start = System.nanoTime();
@@ -723,10 +726,24 @@ public class ComputerWorkbench extends JFrame {
                 }
             }
             long elapsed = System.nanoTime() - start;
-            double hz = steps / (elapsed / 1_000_000_000.0);
+            double elapsedSec = elapsed / 1_000_000_000.0;
+            double hz = steps / elapsedSec;
+            double mips = hz / 1_000_000.0;
             final boolean fCapped = capped;
-            SwingUtilities.invokeLater(() -> coreClockLabel.setText(
-                    String.format("Core: %,.0f Hz%s", hz, fCapped ? " (loop capped)" : "")));
+
+            final long finalSteps = steps;
+            final double finalElapsedSec = elapsedSec;
+            final double finalHz = hz;
+            final double finalMips = mips;
+
+            System.out.printf("[BENCHMARK] Results: %,d instructions in %.3f s -> %,.0f Hz (%.2f MIPS)%s%n",
+                    finalSteps, finalElapsedSec, finalHz, finalMips, fCapped ? " [loop capped]" : "");
+
+            SwingUtilities.invokeLater(() -> {
+                coreClockLabel.setText(String.format("Core: %,.0f Hz%s", finalHz, fCapped ? " (loop capped)" : ""));
+                logArea.append(String.format("Core Benchmark: %,.0f Hz (%.2f MIPS) [%,d steps in %.2f s]%n",
+                        finalHz, finalMips, finalSteps, finalElapsedSec));
+            });
         }, "core-benchmark");
         worker.setDaemon(true);
         worker.start();

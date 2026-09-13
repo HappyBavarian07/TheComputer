@@ -4,8 +4,8 @@ import json
 import re
 import datetime
 import subprocess
-from PyQt6.QtCore import Qt, QMimeData, QUrl, QFileSystemWatcher
-from PyQt6.QtGui import QDrag, QAction, QColor, QFont
+from PyQt6.QtCore import Qt, QMimeData, QUrl, QFileSystemWatcher, QPointF, QRectF
+from PyQt6.QtGui import QDrag, QAction, QColor, QFont, QPainterPath, QPen, QBrush, QPainter
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -35,7 +35,11 @@ from PyQt6.QtWidgets import (
     QHeaderView,
     QFrame,
     QProgressBar,
-    QScrollArea
+    QScrollArea,
+    QGraphicsView,
+    QGraphicsScene,
+    QGraphicsProxyWidget,
+    QGraphicsPathItem,
 )
 
 # Try importing QWebEngineView for live Mermaid diagram rendering
@@ -785,81 +789,6 @@ class PhaseListWidget(QListWidget):
         menu.exec(self.mapToGlobal(pos))
 
 
-class NetworkWidget(QWidget):
-    def __init__(self, kanban_board):
-        super().__init__()
-        self.kanban = kanban_board
-        self.critical_set = set()
-        self.setup_ui()
-
-    def setup_ui(self):
-        layout = QVBoxLayout(self)
-        top = QHBoxLayout()
-        gen_btn = QPushButton("Generate Graph (DOT)")
-        gen_btn.clicked.connect(self.generate_dot)
-        top.addWidget(gen_btn)
-        export_btn = QPushButton("Export DOT to file")
-        export_btn.setObjectName("secondaryBtn")
-        export_btn.clicked.connect(self.export_dot)
-        top.addWidget(export_btn)
-        top.addStretch()
-        layout.addLayout(top)
-
-        self.viewer = QTextBrowser()
-        layout.addWidget(self.viewer)
-
-    def generate_dot(self):
-        tasks = self.kanban.tasks
-        phase_nodes = {}
-        nodes = []
-        edges = []
-        for t in tasks:
-            nid = t.get("id")
-            nodes.append(nid)
-            p = t.get("phase") or "Unspecified"
-            phase_nodes.setdefault(p, []).append(nid)
-            for dep in t.get("dependencies", []):
-                edges.append((dep, nid))
-
-        lines = ["digraph G {", "  rankdir=LR;", "  node [shape=box, style=filled, fillcolor=\"#21262d\", fontcolor=\"#c9d1d9\"];"]
-        for p, ids in phase_nodes.items():
-            safe = re.sub(r"[^A-Za-z0-9_]", "_", p)[:40]
-            lines.append(f'  subgraph cluster_{safe} {{')
-            lines.append(f'    label = "{p}";')
-            for i in ids:
-                # color critical nodes differently
-                if i in self.critical_set:
-                    lines.append(f'    "{i}" [style=filled, fillcolor="\"#b62324\"", fontcolor="#ffffff"];')
-                else:
-                    lines.append(f'    "{i}";')
-            lines.append('  }')
-        for a, b in edges:
-            lines.append(f'  "{a}" -> "{b}";')
-        lines.append('}')
-        dot = "\n".join(lines)
-        self.last_dot = dot
-        self.viewer.setPlainText(dot)
-
-    def set_critical(self, ids):
-        try:
-            self.critical_set = set(ids)
-        except Exception:
-            self.critical_set = set()
-
-    def export_dot(self):
-        if not hasattr(self, 'last_dot'):
-            QMessageBox.information(self, "No graph", "Generate the graph before exporting.")
-            return
-        fname = QFileDialog.getSaveFileName(self, "Save DOT", os.path.join(os.getcwd(), "task_graph.dot"), "DOT Files (*.dot);;All Files (*)")[0]
-        if fname:
-            try:
-                with open(fname, 'w', encoding='utf-8') as f:
-                    f.write(self.last_dot)
-                QMessageBox.information(self, "Saved", f"DOT exported to {fname}")
-            except Exception as e:
-                QMessageBox.critical(self, "Export Error", str(e))
-
-
 class DependencyRoadmapWidget(QWidget):
     def __init__(self, kanban_board):
         super().__init__()
@@ -1223,6 +1152,492 @@ class RoadmapBrowserWidget(QWidget):
         html = html.replace("\n", "<br/>")
         return f"<div style='font-family:Segoe UI, sans-serif; color:#c9d1d9;'>{html}</div>"
 
+# ---------------------------------------------------------------------------
+# Tech-tree board: dependency graph replacing the kanban columns, plus a styled
+# detail overview panel replacing the wall-of-textfields dialog on click.
+# ---------------------------------------------------------------------------
+
+NODE_W, NODE_H, H_GAP, V_GAP = 210, 104, 96, 28
+STATE_COLORS = {"done": "#48c48c", "wip": "#5f9be6", "ready": "#3fb3bd", "locked": "#8493a1"}
+STATE_LABEL = {"done": "✓ done", "wip": "◧ in-progress", "ready": "○ ready", "locked": "🔒 locked"}
+BLOCK_COLOR = "#eb6d57"
+
+
+def _by_id(tasks):
+    return {t.get("id"): t for t in tasks if t.get("id")}
+
+
+def effective_state(task, by_id):
+    """Returns (state, unmet_dependency_ids). ready/locked are derived from deps."""
+    st = (task.get("status") or "TODO").upper()
+    if st == "DONE":
+        return "done", []
+    if st == "IN_PROGRESS":
+        return "wip", []
+    unmet = [d for d in (task.get("dependencies") or [])
+             if d in by_id and (by_id[d].get("status") or "TODO").upper() != "DONE"]
+    return ("locked" if unmet else "ready"), unmet
+
+
+def compute_layout(tasks):
+    by_id = _by_id(tasks)
+    ids = list(by_id)
+    deps = {i: [d for d in (by_id[i].get("dependencies") or []) if d in by_id] for i in ids}
+
+    depth, visiting = {}, set()
+
+    def d(i):
+        if i in depth:
+            return depth[i]
+        if i in visiting:      # cycle guard
+            return 0
+        visiting.add(i)
+        depth[i] = 0 if not deps[i] else 1 + max(d(x) for x in deps[i])
+        visiting.discard(i)
+        return depth[i]
+
+    for i in ids:
+        d(i)
+
+    cols = {}
+    for i in ids:
+        cols.setdefault(depth[i], []).append(i)
+
+    idx = {}
+    for c in sorted(cols):
+        cols[c].sort(key=lambda i: (by_id[i].get("phase") or "", by_id[i].get("module") or "", i))
+        for pos, i in enumerate(cols[c]):
+            idx[i] = pos
+
+    for _ in range(2):  # barycenter crossing reduction
+        for c in sorted(cols):
+            if c == 0:
+                continue
+            cols[c].sort(key=lambda i: (sum(idx[p] for p in deps[i]) / len(deps[i])) if deps[i] else idx[i])
+            for pos, i in enumerate(cols[c]):
+                idx[i] = pos
+
+    pos = {}
+    for c in sorted(cols):
+        for row, i in enumerate(cols[c]):
+            pos[i] = (c * (NODE_W + H_GAP), row * (NODE_H + V_GAP))
+    return pos
+
+
+class NodeCard(QFrame):
+    def __init__(self, task, state, unmet, on_click, on_double):
+        super().__init__()
+        self.task = task
+        self.state = state
+        self._on_click = on_click
+        self._on_double = on_double
+        self.setFixedSize(NODE_W, NODE_H)
+        self.setObjectName("node")
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._apply_style(False)
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(12, 9, 11, 9)
+        lay.setSpacing(4)
+
+        top = QHBoxLayout()
+        idl = QLabel(task.get("id", "TASK"))
+        idl.setStyleSheet("font-family:Consolas,monospace; font-size:11px; font-weight:600; color:#8098a8;")
+        top.addWidget(idl)
+        top.addStretch()
+        g = QLabel(STATE_LABEL[state])
+        g.setStyleSheet(f"font-family:Consolas,monospace; font-size:11px; font-weight:700; color:{STATE_COLORS[state]};")
+        top.addWidget(g)
+        lay.addLayout(top)
+
+        title = QLabel(task.get("title", "Untitled"))
+        title.setWordWrap(True)
+        title.setStyleSheet("font-size:13px; font-weight:600; color:#d8e4ec;")
+        lay.addWidget(title)
+
+        lay.addStretch()
+        mod = (task.get("module") or "core").lower()
+        if state == "locked" and unmet:
+            foot = QLabel("▲ waiting on " + ", ".join(unmet))
+            foot.setStyleSheet(f"font-family:Consolas,monospace; font-size:10px; color:{BLOCK_COLOR};")
+        else:
+            foot = QLabel("● " + mod)
+            foot.setStyleSheet(f"font-family:Consolas,monospace; font-size:10px; color:{module_color(mod)};")
+        foot.setWordWrap(True)
+        lay.addWidget(foot)
+
+    def _apply_style(self, selected):
+        c = STATE_COLORS[self.state]
+        border = f"2px solid #cfe3ff" if selected else "1px solid #25333f"
+        self.setStyleSheet(
+            f"QFrame#node{{background:#131c24;border:{border};border-left:4px solid {c};border-radius:9px;}}"
+            f"QFrame#node:hover{{border:1px solid {c};border-left:4px solid {c};}}"
+        )
+
+    def set_selected(self, sel):
+        self._apply_style(sel)
+
+    def mousePressEvent(self, e):
+        self._on_click(self.task)
+
+    def mouseDoubleClickEvent(self, e):
+        self._on_double(self.task)
+
+
+class TechTreeView(QGraphicsView):
+    def __init__(self, on_select, on_double):
+        super().__init__()
+        self._on_select = on_select
+        self._on_double = on_double
+        self.setScene(QGraphicsScene(self))
+        self.setRenderHint(QPainter.RenderHint.Antialiasing)
+        # NoDrag + custom empty-space panning: dragging blank canvas pans, clicks on a
+        # node card still reach the card (ScrollHandDrag would swallow those clicks).
+        self.setDragMode(QGraphicsView.DragMode.NoDrag)
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.nodes = {}
+        self.selected_id = None
+        self._zoom = 1.0
+        self._did_fit = False
+        self._panning = False
+        self._pan_last = None
+
+    def drawBackground(self, painter, rect):
+        painter.fillRect(rect, QColor("#0f151b"))
+        painter.setPen(QPen(QColor("#1b2731")))
+        step = 22
+        x = int(rect.left()) - (int(rect.left()) % step)
+        while x < rect.right():
+            y = int(rect.top()) - (int(rect.top()) % step)
+            while y < rect.bottom():
+                painter.drawPoint(x, y)
+                y += step
+            x += step
+
+    def wheelEvent(self, e):
+        f = 1.15 if e.angleDelta().y() > 0 else 1 / 1.15
+        nz = self._zoom * f
+        if 0.1 < nz < 3.0:
+            self._zoom = nz
+            self.scale(f, f)
+
+    def _pos(self, e):
+        return e.position().toPoint()
+
+    def mousePressEvent(self, e):
+        p = self._pos(e)
+        item = self.itemAt(p)
+        if e.button() == Qt.MouseButton.LeftButton and not isinstance(item, QGraphicsProxyWidget):
+            self._panning = True
+            self._pan_last = p
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            e.accept()
+            return
+        super().mousePressEvent(e)
+
+    def mouseMoveEvent(self, e):
+        if self._panning and self._pan_last is not None:
+            p = self._pos(e)
+            d = p - self._pan_last
+            self._pan_last = p
+            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - d.x())
+            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - d.y())
+            e.accept()
+            return
+        super().mouseMoveEvent(e)
+
+    def mouseReleaseEvent(self, e):
+        if self._panning:
+            self._panning = False
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            e.accept()
+            return
+        super().mouseReleaseEvent(e)
+
+    def fit(self):
+        r = self.scene().itemsBoundingRect()
+        if not r.isEmpty():
+            self.resetTransform()
+            self.fitInView(r, Qt.AspectRatioMode.KeepAspectRatio)
+            self._zoom = self.transform().m11()
+
+    def build(self, tasks):
+        sc = self.scene()
+        sc.clear()
+        self.nodes = {}
+        by_id = _by_id(tasks)
+        pos = compute_layout(tasks)
+
+        for t in tasks:
+            i = t.get("id")
+            if i not in pos:
+                continue
+            cx, cy = pos[i]
+            for dep in (t.get("dependencies") or []):
+                if dep not in pos:
+                    continue
+                px, py = pos[dep]
+                blocking = (t.get("status") or "TODO").upper() != "DONE" and \
+                           (by_id[dep].get("status") or "TODO").upper() != "DONE"
+                self._edge((px + NODE_W, py + NODE_H / 2), (cx, cy + NODE_H / 2), blocking)
+
+        for t in tasks:
+            i = t.get("id")
+            if i not in pos:
+                continue
+            state, unmet = effective_state(t, by_id)
+            card = NodeCard(t, state, unmet, self._on_select, self._on_double)
+            proxy = sc.addWidget(card)
+            proxy.setPos(*pos[i])
+            self.nodes[i] = card
+
+        if pos:
+            br = sc.itemsBoundingRect().adjusted(-60, -60, 60, 60)
+            sc.setSceneRect(br)
+            if not self._did_fit:
+                self.fit()
+                self._did_fit = True
+        if self.selected_id in self.nodes:
+            self.nodes[self.selected_id].set_selected(True)
+
+    def _edge(self, s, e, blocking):
+        sx, sy = s
+        ex, ey = e
+        mx = (sx + ex) / 2
+        path = QPainterPath(QPointF(sx, sy))
+        path.cubicTo(mx, sy, mx, ey, ex, ey)
+        item = QGraphicsPathItem(path)
+        pen = QPen(QColor(BLOCK_COLOR if blocking else "#33424e"), 2)
+        if blocking:
+            pen.setStyle(Qt.PenStyle.DashLine)
+        item.setPen(pen)
+        item.setZValue(-1)
+        self.scene().addItem(item)
+
+    def select(self, task_id):
+        if self.selected_id in self.nodes:
+            self.nodes[self.selected_id].set_selected(False)
+        self.selected_id = task_id
+        if task_id in self.nodes:
+            self.nodes[task_id].set_selected(True)
+
+
+class TaskDetailPanel(QWidget):
+    """Styled read overview shown on node click; edits go through the dialog."""
+    def __init__(self, on_edit, on_status):
+        super().__init__()
+        self._on_edit = on_edit
+        self._on_status = on_status
+        self.current = None
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(8)
+
+        self.view = QTextBrowser()
+        self.view.setOpenExternalLinks(False)
+        lay.addWidget(self.view)
+
+        row = QHBoxLayout()
+        self.edit_btn = QPushButton("Edit Ticket")
+        self.edit_btn.clicked.connect(lambda: self.current and self._on_edit(self.current))
+        row.addWidget(self.edit_btn)
+        row.addWidget(QLabel("Status:"))
+        self.status_combo = QComboBox()
+        self.status_combo.addItems(["TODO", "IN_PROGRESS", "DONE"])
+        self.status_combo.currentTextChanged.connect(self._status_changed)
+        row.addWidget(self.status_combo)
+        self.branch_btn = QPushButton("Copy Branch")
+        self.branch_btn.setObjectName("secondaryBtn")
+        self.branch_btn.clicked.connect(self._copy_branch)
+        row.addWidget(self.branch_btn)
+        row.addStretch()
+        lay.addLayout(row)
+
+        self._set_buttons(False)
+        self.show_placeholder()
+
+    def _set_buttons(self, on):
+        self.edit_btn.setEnabled(on)
+        self.status_combo.setEnabled(on)
+        self.branch_btn.setEnabled(on)
+
+    def _status_changed(self, s):
+        if self.current and s != (self.current.get("status") or "TODO"):
+            self._on_status(self.current, s)
+
+    def _copy_branch(self):
+        if not self.current:
+            return
+        tid = self.current.get("id", "TASK")
+        slug = re.sub(r"[^a-zA-Z0-9]", "-", (self.current.get("title") or "").lower()).strip("-")
+        QApplication.clipboard().setText(f"ticket/{tid}-{slug}")
+
+    def show_placeholder(self):
+        self.current = None
+        self._set_buttons(False)
+        self.view.setHtml(
+            "<div style='color:#8098a8; font-family:Segoe UI; padding:24px;'>"
+            "<h2 style='color:#3fb3bd;'>Tech Tree</h2>"
+            "<p>Click a node to see its full ticket overview here. "
+            "Double-click to edit. Scroll to zoom, scrollbars to pan.</p></div>"
+        )
+
+    @staticmethod
+    def _esc(s):
+        return (str(s or "")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    def show_task(self, task, by_id):
+        self.current = task
+        self._set_buttons(True)
+        self.status_combo.blockSignals(True)
+        self.status_combo.setCurrentText((task.get("status") or "TODO").upper())
+        self.status_combo.blockSignals(False)
+
+        state, unmet = effective_state(task, by_id)
+        sc = STATE_COLORS[state]
+        mod = (task.get("module") or "core").lower()
+
+        def pill(text, bg, fg="#0f151b"):
+            return (f"<span style='background:{bg}; color:{fg}; padding:2px 9px; border-radius:9px; "
+                    f"font-family:Consolas,monospace; font-size:11px; font-weight:700;'>{self._esc(text)}</span>")
+
+        def section(title, body):
+            return (f"<div style='color:#3fb3bd; font-size:12px; font-weight:700; text-transform:uppercase; "
+                    f"letter-spacing:.05em; margin:16px 0 6px;'>{title}</div>{body}")
+
+        h = ["<div style='font-family:Segoe UI; color:#d8e4ec; padding:6px 10px;'>"]
+        h.append(f"<div style='font-family:Consolas,monospace; color:#8098a8; font-size:12px;'>{self._esc(task.get('id'))}</div>")
+        h.append(f"<div style='font-size:19px; font-weight:700; color:#eef1f6; margin:2px 0 10px;'>{self._esc(task.get('title'))}</div>")
+
+        prio = (task.get("priority") or "").upper()
+        prio_bg = "#d34f3a" if prio == "HIGH" else ("#c67f14" if prio == "MEDIUM" else "#5b6673")
+        pills = [pill(STATE_LABEL[state], sc), pill(mod, module_color(mod), "#ffffff")]
+        if prio:
+            pills.append(pill(prio, prio_bg, "#ffffff"))
+        if task.get("phase"):
+            pills.append(pill(task.get("phase"), "#1e2933", "#9fb2c2"))
+        h.append(" ".join(pills))
+
+        if state == "locked":
+            h.append(f"<div style='margin-top:12px; background:#2b1713; border:1px solid {BLOCK_COLOR}; "
+                     f"border-radius:8px; padding:9px 12px; color:{BLOCK_COLOR}; font-size:13px;'>"
+                     f"Locked — waiting on {self._esc(', '.join(unmet))}</div>")
+        elif state == "ready":
+            h.append(f"<div style='margin-top:12px; background:#0f2a2c; border:1px solid {sc}; "
+                     f"border-radius:8px; padding:9px 12px; color:{sc}; font-size:13px;'>"
+                     f"Ready — all dependencies satisfied</div>")
+
+        deps = task.get("dependencies") or []
+        if deps:
+            items = []
+            for dpid in deps:
+                dt = by_id.get(dpid)
+                done = dt and (dt.get("status") or "").upper() == "DONE"
+                col = STATE_COLORS["done"] if done else BLOCK_COLOR
+                mark = "✓" if done else "○"
+                items.append(f"<span style='color:{col}; font-family:Consolas,monospace; font-size:12px; "
+                             f"margin-right:12px;'>{mark} {self._esc(dpid)}</span>")
+            h.append(section("Dependencies", "<div>" + "".join(items) + "</div>"))
+
+        if task.get("description"):
+            h.append(section("Description", f"<div style='font-size:13px; line-height:1.5;'>{self._esc(task.get('description'))}</div>"))
+        if task.get("acceptance_criteria"):
+            h.append(section("Acceptance Criteria", f"<div style='font-size:13px; line-height:1.5; white-space:pre-wrap;'>{self._esc(task.get('acceptance_criteria'))}</div>"))
+
+        bp = task.get("blueprint") or {}
+        if bp:
+            body = []
+            if bp.get("goal"):
+                body.append(f"<b style='color:#9fb2c2;'>Goal:</b> <span style='font-size:13px;'>{self._esc(bp['goal'])}</span>")
+            def ul(label, arr):
+                if not arr:
+                    return ""
+                lis = "".join(f"<li style='margin:2px 0;'>{self._esc(x)}</li>" for x in arr)
+                return f"<div style='margin-top:6px;'><b style='color:#9fb2c2;'>{label}:</b><ul style='margin:4px 0 0 0;'>{lis}</ul></div>"
+            body.append(ul("In scope", bp.get("scope_in")))
+            body.append(ul("Out of scope", bp.get("scope_out")))
+            if bp.get("topology"):
+                body.append(f"<div style='margin-top:6px;'><b style='color:#9fb2c2;'>Topology:</b> <span style='font-size:13px;'>{self._esc(bp['topology'])}</span></div>")
+            body.append(ul("Steps", bp.get("steps")))
+            body.append(ul("Hazards", bp.get("hazards")))
+            h.append(section("Alignment Blueprint", "<div style='font-size:13px; line-height:1.5;'>" + "".join(body) + "</div>"))
+
+        if task.get("notes"):
+            h.append(section("Notes", f"<div style='font-size:12px; color:#9aa4b2; white-space:pre-wrap;'>{self._esc(task.get('notes'))}</div>"))
+
+        h.append("</div>")
+        self.view.setHtml("".join(h))
+
+
+class TechTreeTab(QWidget):
+    def __init__(self, kanban_board, main_window):
+        super().__init__()
+        self.board = kanban_board          # reused data engine (load/save/edit/create)
+        self.main_window = main_window
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(12, 12, 12, 12)
+        lay.setSpacing(10)
+
+        top = QHBoxLayout()
+        title = QLabel("Dependency Tech Tree")
+        title.setStyleSheet("font-size:15px; font-weight:700; color:#eef1f6;")
+        top.addWidget(title)
+        top.addStretch()
+        for st, col in (("done", "#48c48c"), ("wip", "#5f9be6"), ("ready", "#3fb3bd"), ("locked", "#8493a1")):
+            dot = QLabel("● " + st)
+            dot.setStyleSheet(f"color:{col}; font-family:Consolas,monospace; font-size:11px; margin-right:8px;")
+            top.addWidget(dot)
+        fit_btn = QPushButton("Fit")
+        fit_btn.setObjectName("secondaryBtn")
+        fit_btn.clicked.connect(lambda: self.view.fit())
+        top.addWidget(fit_btn)
+        add_btn = QPushButton("+ New Ticket")
+        add_btn.clicked.connect(self.create_task)
+        top.addWidget(add_btn)
+        lay.addLayout(top)
+
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.view = TechTreeView(self.on_select, self.on_double)
+        splitter.addWidget(self.view)
+        self.panel = TaskDetailPanel(self.on_edit, self.on_status)
+        splitter.addWidget(self.panel)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
+        lay.addWidget(splitter)
+
+        self.refresh()
+
+    def refresh(self):
+        self.view.build(self.board.tasks)
+        if self.panel.current:
+            cur = _by_id(self.board.tasks).get(self.panel.current.get("id"))
+            if cur:
+                self.panel.show_task(cur, _by_id(self.board.tasks))
+            else:
+                self.panel.show_placeholder()
+
+    def on_select(self, task):
+        self.view.select(task.get("id"))
+        self.panel.show_task(task, _by_id(self.board.tasks))
+
+    def on_double(self, task):
+        self.on_edit(task)
+
+    def on_edit(self, task):
+        self.board.edit_task(task)
+        self.refresh()
+
+    def on_status(self, task, status):
+        self.board.move_task(task, status)
+        self.refresh()
+
+    def create_task(self):
+        self.board.create_task()
+        self.refresh()
+
+
 class MainWindow(QMainWindow):
     def __init__(self, root_dir):
         super().__init__()
@@ -1262,8 +1677,9 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.tabs)
 
         json_path = os.path.join(self.root_dir, "docs", "tasks.json")
-        self.kanban_board = KanbanBoardWidget(json_path, self)
-        self.tabs.addTab(self.kanban_board, "Kanban Board")
+        self.kanban_board = KanbanBoardWidget(json_path, self)  # data engine: load/save/edit/create
+        self.tech_tree = TechTreeTab(self.kanban_board, self)
+        self.tabs.addTab(self.tech_tree, "Tech Tree")
 
         # Dependency roadmap (make it default open)
         self.dependency_roadmap = DependencyRoadmapWidget(self.kanban_board)
@@ -1272,15 +1688,11 @@ class MainWindow(QMainWindow):
         self.diagram_editor = DiagramEditorWidget(self.root_dir, self)
         self.tabs.addTab(self.diagram_editor, "Diagram Creator & Editor")
 
-        # Network / dependency view driven from current board data
-        self.network_widget = NetworkWidget(self.kanban_board)
-        self.tabs.addTab(self.network_widget, "Network View")
-
         self.roadmap_browser = RoadmapBrowserWidget(self.root_dir)
         self.tabs.addTab(self.roadmap_browser, "Roadmaps & Docs")
 
-        # Open Dependency Roadmap tab by default
-        self.tabs.setCurrentWidget(self.dependency_roadmap)
+        # Open the Tech Tree by default
+        self.tabs.setCurrentWidget(self.tech_tree)
 
     def setup_watcher(self):
         self.watcher = QFileSystemWatcher(self)
@@ -1300,11 +1712,13 @@ class MainWindow(QMainWindow):
 
     def on_file_auto_changed(self, path):
         self.kanban_board.load_tasks()
+        self.tech_tree.refresh()
         self.diagram_editor.load_diagram_files()
         self.statusBar().showMessage("Auto-refreshed workstation from disk change.", 3000)
 
     def sync_all(self):
         self.kanban_board.load_tasks()
+        self.tech_tree.refresh()
         self.diagram_editor.load_diagram_files()
         self.update_git_status()
         self.statusBar().showMessage("Synced with disk and Git.", 3000)
