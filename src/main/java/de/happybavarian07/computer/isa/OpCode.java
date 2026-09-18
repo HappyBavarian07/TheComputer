@@ -93,6 +93,14 @@ public enum OpCode {
         throw new IllegalInstructionException("Invalid Instruction value: " + target);
     }
 
+    public static OpCode fromBinaryValueNullable(Number binaryValue) {
+        int target = binaryValue.intValue();
+        for (OpCode op : values()) {
+            if (op.binaryValue.intValue() == target) return op;
+        }
+        return null;
+    }
+
     public static OpCode valueOfNullable(String value) {
         try {
             return valueOf(value);

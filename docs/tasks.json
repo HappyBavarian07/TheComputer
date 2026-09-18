@@ -306,7 +306,7 @@
       "id": "DIS-001",
       "title": "Implement Disassembler (Machine \u2192 Assembly)",
       "module": "assembly",
-      "status": "TODO",
+      "status": "DONE",
       "priority": "HIGH",
       "phase": "Phase 16 - Disassembler",
       "dependencies": [
