@@ -81,7 +81,13 @@ public class FixedWidthBits {
             );
         }
 
-        return Long.parseUnsignedLong(getAsString(), 2);
+        long value = 0L;
+        for (int i = 0; i < size; i++) {
+            if (bitArray[i].getAsBool()) {
+                value |= (1L << (size - 1 - i));
+            }
+        }
+        return value;
     }
 
     public int getAsInt() {
@@ -183,8 +189,7 @@ public class FixedWidthBits {
 
         long val = numberInput.longValue();
         for (int i = 0; i < size; i++) {
-            boolean bitVal = ((val >> i) & 1L) == 1L;
-            this.bitArray[size - 1 - i].set(bitVal);
+            this.bitArray[size - 1 - i].set(((val >> i) & 1L) == 1L);
         }
     }
 

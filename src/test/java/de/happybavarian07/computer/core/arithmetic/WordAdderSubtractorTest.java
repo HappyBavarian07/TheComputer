@@ -91,7 +91,7 @@ class WordAdderSubtractorTest {
             resultTest += inB.getAsInt();
             adder.execute(inA, inB, false, outResult, outCarry, outOverflow);
             assertEquals(resultTest, outResult.getAsInt(), "Result is wrong. (i = " + i + ", resultTest = " + resultTest + ")");
-            inA.set(outResult.getAsArray());
+            inA.set(outResult);
             System.out.println("Result at i = " + i + ": Test = " + resultTest + ", Adder = " + inA.getAsInt() + ")");
         }
         System.out.println("Result final: Test = " + resultTest + ", Adder = " + inA.getAsInt() + ")");

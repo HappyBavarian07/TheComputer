@@ -26,11 +26,11 @@ public class SpecialRegisters {
     }
 
     public void readPC(Address destination) {
-        destination.set(pc.getAsArray());
+        destination.set(pc);
     }
 
     public void writePC(Address source) {
-        pc.set(source.getAsArray());
+        pc.set(source);
     }
 
     public Address getPC() {
@@ -38,11 +38,11 @@ public class SpecialRegisters {
     }
 
     public void readSP(Address destination) {
-        destination.set(sp.getAsArray());
+        destination.set(sp);
     }
 
     public void writeSP(Address source) {
-        sp.set(source.getAsArray());
+        sp.set(source);
     }
 
     public Address getSP() {
@@ -50,7 +50,7 @@ public class SpecialRegisters {
     }
 
     public void readIR(Word destination) {
-        destination.set(ir.getAsArray());
+        destination.set(ir);
     }
 
     public Word getIR() {
@@ -58,7 +58,7 @@ public class SpecialRegisters {
     }
 
     public void writeIR(Word source) {
-        ir.set(source.getAsArray());
+        ir.set(source);
     }
 
     public void writeFlags(Bit newFlagZ, Bit newFlagN, Bit newFlagC, Bit newFlagV) {
