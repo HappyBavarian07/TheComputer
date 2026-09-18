@@ -59,6 +59,14 @@ public enum Condition {
         throw new IllegalConditionException("Invalid Condition value received.");
     }
 
+    public static Condition fromBinaryValueNullable(Number binaryValue) {
+        int target = binaryValue.intValue();
+        for (Condition cond : values()) {
+            if (cond.binaryValue.intValue() == target) return cond;
+        }
+        return null;
+    }
+
     public static Condition valueOfSafe(String value) {
         if (value == null || value.isEmpty()) return AL;
         try {

@@ -306,7 +306,7 @@
       "id": "DIS-001",
       "title": "Implement Disassembler (Machine \u2192 Assembly)",
       "module": "assembly",
-      "status": "TODO",
+      "status": "DONE",
       "priority": "HIGH",
       "phase": "Phase 16 - Disassembler",
       "dependencies": [
@@ -406,9 +406,50 @@
         "MEM-001",
         "SYS-001"
       ],
-      "description": "Define and implement memory-mapped I/O addresses for input/output devices.",
+      "description": "Define and implement memory-mapped I/O addresses for input/output devices (UART console text, keyboard input, real-time timer).",
       "acceptance_criteria": "1. Read/write to I/O addresses maps to device behavior.\n2. Provide example console output/input device.",
       "notes": "Keep devices simple and testable."
+    },
+    {
+      "id": "GPU-001",
+      "title": "Implement Virtual GPU & Memory-Mapped Framebuffer Display",
+      "module": "gpu",
+      "status": "TODO",
+      "priority": "MEDIUM",
+      "phase": "Phase 18.5 - Graphics & Display",
+      "dependencies": [
+        "MEM-001",
+        "SYS-001",
+        "IO-001"
+      ],
+      "description": "Build high-performance virtual GPU bus device with memory-mapped VRAM framebuffer (e.g., 320x240 / 640x480 ARGB), hardware color palettes, scanline sync, and real-time host GPU texture blitting.",
+      "acceptance_criteria": "1. VideoBusDevice exposes VRAM range with byte and 64-bit word writes.\n2. Host rendering surface renders VRAM at 60 FPS via host GPU hardware acceleration.\n3. Sample graphics demo (e.g. bouncing square / rainbow test pattern) runs in 64-bit assembly.",
+      "tags": [
+        "GPU",
+        "VRAM",
+        "GRAPHICS",
+        "MMIO"
+      ]
+    },
+    {
+      "id": "FPU-001",
+      "title": "Implement IEEE-754 Floating-Point Unit (FPU)",
+      "module": "cpu",
+      "status": "TODO",
+      "priority": "MEDIUM",
+      "phase": "Phase 19.5 - Floating Point",
+      "dependencies": [
+        "CPU-001",
+        "ISA-002"
+      ],
+      "description": "Implement 64-bit double-precision IEEE-754 floating-point arithmetic (FADD, FSUB, FMUL, FDIV, FSQRT, FCMP, FCVT) with zero-allocation bit extraction and IEEE rounding modes.",
+      "acceptance_criteria": "1. FPU computes IEEE-754 64-bit binary operations correctly (sign, exponent, mantissa).\n2. Correct handling of NaN, +Inf, -Inf, subnormals, and divide-by-zero.\n3. Complete unit test suite verifying IEEE-754 test vectors against standard math.",
+      "tags": [
+        "FPU",
+        "CPU",
+        "FLOAT",
+        "IEEE754"
+      ]
     },
     {
       "id": "LANG-001",
