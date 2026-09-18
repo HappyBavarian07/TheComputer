@@ -20,13 +20,13 @@ public class RegisterFile {
     public void read(int regIndex, Word destination) {
         if(regIndex < 0 || regIndex > Architecture.GPR_COUNT - 1) throw new IllegalArgumentException("Tried to access non existent Register");
 
-        destination.set(registers[regIndex].getAsArray());
+        destination.set(registers[regIndex]);
     }
 
     public void write(int regIndex, Word source) {
         if(regIndex < 0 || regIndex > Architecture.GPR_COUNT - 1) throw new IllegalArgumentException("Tried to write non existent Register");
 
-        registers[regIndex].set(source.getAsArray());
+        registers[regIndex].set(source);
     }
 
     public void reset() {
