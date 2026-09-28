@@ -5,6 +5,7 @@ import de.happybavarian07.computer.assembler.lexer.impl.IndexedLexer;
 import de.happybavarian07.computer.assembler.parser.DefaultParser;
 import de.happybavarian07.computer.assembler.parser.model.Program;
 import de.happybavarian07.computer.assembler.parser.model.SourceSpan;
+import de.happybavarian07.computer.assembler.parser.model.statement.InstructionStatement;
 import de.happybavarian07.computer.assembler.resolver.SymbolResolver;
 import de.happybavarian07.computer.assembler.resolver.model.ResolvedProgram;
 import de.happybavarian07.computer.assembler.resolver.model.ResolvedStatement;
@@ -58,6 +59,8 @@ public final class EditorPanel extends JPanel {
     private boolean diagnosticsDirty;
     private Runnable onSourceChanged = () -> {
     };
+
+    private int currentPc = -1;
 
     public EditorPanel() {
         super(new BorderLayout(6, 6));
@@ -163,7 +166,14 @@ public final class EditorPanel extends JPanel {
 
     /** Moves the gutter arrow to whatever source line maps to {@code pc}, if any. */
     public void highlightExecutionPointer(int pc) {
-        SourceSpan span = sourceSpanByAddress.get(pc);
+        currentPc = pc;
+        refreshGutter();
+    }
+
+    // Re-derives the arrow from the last known PC. Runs after every PC change and after every source edit, because an
+    // edit both shifts the line numbers and rebuilds the address to line map.
+    private void refreshGutter() {
+        SourceSpan span = currentPc < 0 ? null : sourceSpanByAddress.get(currentPc);
         gutter.setText(buildGutterText(span == null ? 0 : span.startLine()));
     }
 
@@ -195,6 +205,7 @@ public final class EditorPanel extends JPanel {
         SwingUtilities.invokeLater(() -> {
             try {
                 refreshDiagnostics();
+                refreshGutter();
             } finally {
                 diagnosticsPending = false;
                 if (diagnosticsDirty) {
@@ -227,7 +238,8 @@ public final class EditorPanel extends JPanel {
             sourceSpanByAddress.clear();
             for (ResolvedStatement statement : resolvedProgram.statements()) {
                 SourceSpan span = statement.sourceStatement().span();
-                if (span != null) {
+                // only instructions: a label or directive can share an address with the instruction after it
+                if (span != null && statement.sourceStatement() instanceof InstructionStatement) {
                     sourceSpanByAddress.put(statement.address(), span);
                 }
             }

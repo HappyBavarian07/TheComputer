@@ -8,11 +8,16 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
+import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
 
 /** Live window of decoded instructions centered on the current PC. */
 public final class DisassemblyPanel extends JPanel {
+    // rows decoded before the PC and in total; the table scrolls, so the whole window is reachable
+    private static final int LEAD_ROWS = 16;
+    private static final int WINDOW_ROWS = 96;
+
     private final WorkbenchController controller;
     private final DefaultTableModel model = new DefaultTableModel(new Object[]{"Address", "Word", "Instruction"}, 0) {
         @Override
@@ -39,9 +44,9 @@ public final class DisassemblyPanel extends JPanel {
 
     public void refresh(int pc) {
         model.setRowCount(0);
-        int base = Math.max(0, pc - (Architecture.INSTRUCTION_BYTES * 4));
+        int base = Math.max(0, pc - (Architecture.INSTRUCTION_BYTES * LEAD_ROWS));
         base = (base / Architecture.INSTRUCTION_BYTES) * Architecture.INSTRUCTION_BYTES;
-        int rows = 12;
+        int rows = WINDOW_ROWS;
         int selectedRow = -1;
 
         for (int i = 0; i < rows; i++) {
@@ -62,6 +67,8 @@ public final class DisassemblyPanel extends JPanel {
 
         if (selectedRow >= 0 && selectedRow < table.getRowCount()) {
             table.setRowSelectionInterval(selectedRow, selectedRow);
+            int row = selectedRow;
+            SwingUtilities.invokeLater(() -> table.scrollRectToVisible(table.getCellRect(row, 0, true)));
         }
     }
 }

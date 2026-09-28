@@ -43,6 +43,8 @@ public final class WorkbenchController {
     private final Motherboard motherboard = new Motherboard();
     private final Disassembler disassembler = new Disassembler();
     private final AtomicBoolean runRequested = new AtomicBoolean(false);
+    private static final int MAX_TRACE_ENTRIES = 1000;
+    private static final int RUN_TRACE_STEPS_PER_TICK = 32;
     private final Deque<String> traceEntries = new ArrayDeque<>();
     private final List<WorkbenchListener> listeners = new CopyOnWriteArrayList<>();
 
@@ -138,8 +140,7 @@ public final class WorkbenchController {
                 onTick.run();
                 return;
             }
-            int pcBefore = motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
-            long rawBefore = readMemoryWord(pcBefore);
+            int[] pcs = new int[stepsPerTick];
             int executed = 0;
             String error = null;
             try {
@@ -147,6 +148,7 @@ public final class WorkbenchController {
                     if (motherboard.getCpu().isHalted()) {
                         break;
                     }
+                    pcs[i] = motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
                     motherboard.stepSystem();
                     executed++;
                 }
@@ -154,7 +156,15 @@ public final class WorkbenchController {
                 error = ex.getMessage();
             }
             runStepsTotal += executed;
-            recordTrace("run", pcBefore, rawBefore, motherboard.getCpu().getSpecialRegisters().getPC().getAsInt());
+            // decoding every step would slow the run down, so the trace keeps the last few steps of each tick
+            int pcNow = motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
+            for (int i = Math.max(0, executed - RUN_TRACE_STEPS_PER_TICK); i < executed; i++) {
+                int next = i + 1 < executed ? pcs[i + 1] : pcNow;
+                recordTrace("run", pcs[i], readMemoryWord(pcs[i]), next);
+            }
+            if (error != null) {
+                recordTrace("run", pcNow, readMemoryWord(pcNow), pcNow);
+            }
             fireStateChanged();
             onTick.run();
             if (error != null) {
@@ -409,7 +419,7 @@ public final class WorkbenchController {
         String decoded = disassembler.disassemble(rawWord);
         String entry = phase + " @" + String.format("0x%04X", pcBefore) + " -> " + decoded + " | next " + String.format("0x%04X", pcAfter);
         traceEntries.addFirst(entry);
-        while (traceEntries.size() > 24) {
+        while (traceEntries.size() > MAX_TRACE_ENTRIES) {
             traceEntries.removeLast();
         }
     }
