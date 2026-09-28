@@ -35,6 +35,8 @@ public class Cpu {
     private final Address workingAddress;
     private final Word workingResult;
     private final Word scratchReturnAddrWord;
+    private final Address branchTargetAddress;
+
     private final ExecutionResult executionResult;
 
     private final ExecutionProfiler profiler;
@@ -55,6 +57,8 @@ public class Cpu {
         workingAddress = new Address();
         workingResult = new Word();
         scratchReturnAddrWord = new Word();
+        branchTargetAddress = new Address();
+
         executionResult = new ExecutionResult(true, false);
 
         profiler = new ExecutionProfiler();
@@ -178,15 +182,16 @@ public class Cpu {
                 executionResult.pcUpdate = false;
             }
             case CALL -> {
+                branchTargetAddress.set(workingAddress);
                 scratchReturnAddrWord.set(specialRegisters.getPC().getAsInt() + Architecture.INSTRUCTION_BYTES);
                 push(scratchReturnAddrWord);
-                specialRegisters.getPC().set(workingAddress);
+                specialRegisters.getPC().set(branchTargetAddress);
                 executionResult.pcUpdate = false;
 
             }
             case RET -> {
                 pop(scratchReturnAddrWord);
-                specialRegisters.getPC().set(scratchReturnAddrWord);
+                specialRegisters.getPC().set(scratchReturnAddrWord.getAsLong() & 0xFFFFFFFFL);
                 executionResult.pcUpdate = false;
             }
             case JMPR -> {
