@@ -83,4 +83,28 @@ class InstructionDecoderTest {
 
         assertThrows(IllegalInstructionException.class, () -> decoder.decode(word, instruction));
     }
+
+    @Test
+    void testDecodeKeepsImmediateTopBit() {
+        for (long imm : new long[]{0x7FFFFFFFL, 0x80000000L, 0xFFFFFFFFL}) {
+            word.set((0x11L << 56) | imm);
+            decoder.decode(word, instruction);
+            assertEquals(OpCode.ADDI, instruction.opCode());
+            assertEquals(imm, instruction.immediateAddr() & 0xFFFFFFFFL);
+        }
+    }
+
+    @Test
+    void testDecodeNullableKeepsImmediateTopBit() {
+        word.set((0x11L << 56) | 0xFFFFFFFFL);
+        decoder.decodeNullable(word, instruction);
+        assertEquals(0xFFFFFFFFL, instruction.immediateAddr() & 0xFFFFFFFFL);
+    }
+
+    @Test
+    void testDecodeNullableUnknownFieldsGiveNulls() {
+        word.set(0xFFFFFFFFFFFFFFFFL);
+        assertDoesNotThrow(() -> decoder.decodeNullable(word, instruction));
+        assertNull(instruction.opCode());
+    }
 }
