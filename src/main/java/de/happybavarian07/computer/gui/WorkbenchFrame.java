@@ -187,7 +187,7 @@ public final class WorkbenchFrame extends JFrame {
         runMenu.add(menuItem("Run", KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0), e -> {
             if (!controller.isRunning()) {
                 controlPanel.setClockText("Clock: measuring...");
-                controller.startRun(256, this::updateClockLabel);
+                controller.startRun(controlPanel.stepsPerTick(), this::updateClockLabel);
             }
         }));
         runMenu.add(menuItem("Stop", KeyStroke.getKeyStroke(KeyEvent.VK_F5, java.awt.event.InputEvent.SHIFT_DOWN_MASK), e -> controller.stopRun()));

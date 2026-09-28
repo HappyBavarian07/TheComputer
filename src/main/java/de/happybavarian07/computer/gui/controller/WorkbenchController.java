@@ -45,6 +45,10 @@ public final class WorkbenchController {
     private final AtomicBoolean runRequested = new AtomicBoolean(false);
     private static final int MAX_TRACE_ENTRIES = 1000;
     private static final int RUN_TRACE_STEPS_PER_TICK = 32;
+    /** Pass as steps per tick to fill each timer tick's time slice with as many steps as fit. */
+    public static final int MAX_THROUGHPUT = 0;
+    private static final long TICK_BUDGET_NANOS = 25_000_000L;
+    private final int[] tracePcRing = new int[RUN_TRACE_STEPS_PER_TICK];
     private final Deque<String> traceEntries = new ArrayDeque<>();
     private final List<WorkbenchListener> listeners = new CopyOnWriteArrayList<>();
 
@@ -130,7 +134,7 @@ public final class WorkbenchController {
         runRequested.set(true);
         runStartNanos = System.nanoTime();
         runStepsTotal = 0;
-        runTimer = new Timer(30, e -> {
+        runTimer = new Timer(maxThroughputTimerDelay(stepsPerTick), e -> {
             if (!runRequested.get() || motherboard.getCpu().isHalted()) {
                 runTimer.stop();
                 if (motherboard.getCpu().isHalted()) {
@@ -140,15 +144,21 @@ public final class WorkbenchController {
                 onTick.run();
                 return;
             }
-            int[] pcs = new int[stepsPerTick];
+            boolean maxThroughput = stepsPerTick <= MAX_THROUGHPUT;
+            long deadline = System.nanoTime() + TICK_BUDGET_NANOS;
+            int[] ring = tracePcRing;
             int executed = 0;
             String error = null;
             try {
-                for (int i = 0; i < stepsPerTick; i++) {
+                for (int i = 0; maxThroughput || i < stepsPerTick; i++) {
                     if (motherboard.getCpu().isHalted()) {
                         break;
                     }
-                    pcs[i] = motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
+                    // max throughput fills the time slice instead of a fixed step count; check the clock rarely
+                    if (maxThroughput && (i & 0xFF) == 0xFF && System.nanoTime() >= deadline) {
+                        break;
+                    }
+                    ring[i % RUN_TRACE_STEPS_PER_TICK] = motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
                     motherboard.stepSystem();
                     executed++;
                 }
@@ -159,8 +169,9 @@ public final class WorkbenchController {
             // decoding every step would slow the run down, so the trace keeps the last few steps of each tick
             int pcNow = motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
             for (int i = Math.max(0, executed - RUN_TRACE_STEPS_PER_TICK); i < executed; i++) {
-                int next = i + 1 < executed ? pcs[i + 1] : pcNow;
-                recordTrace("run", pcs[i], readMemoryWord(pcs[i]), next);
+                int pc = ring[i % RUN_TRACE_STEPS_PER_TICK];
+                int next = i + 1 < executed ? ring[(i + 1) % RUN_TRACE_STEPS_PER_TICK] : pcNow;
+                recordTrace("run", pc, readMemoryWord(pc), next);
             }
             if (error != null) {
                 recordTrace("run", pcNow, readMemoryWord(pcNow), pcNow);
@@ -174,6 +185,11 @@ public final class WorkbenchController {
         });
         runTimer.setInitialDelay(0);
         runTimer.start();
+    }
+
+    // in max throughput mode the slice itself already takes ~25 ms, so the timer only needs to yield to the event queue
+    private static int maxThroughputTimerDelay(int stepsPerTick) {
+        return stepsPerTick <= MAX_THROUGHPUT ? 5 : 30;
     }
 
     public void stopRun() {

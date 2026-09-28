@@ -1,8 +1,11 @@
 package de.happybavarian07.computer.gui.panel;
 
+import de.happybavarian07.computer.gui.controller.WorkbenchController;
+
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
@@ -23,7 +26,8 @@ public final class CpuControlPanel extends JPanel {
     private final JButton runButton = new JButton("Run");
     private final JButton stopButton = new JButton("Stop");
     private final JSpinner stepSpinner = new JSpinner(new SpinnerNumberModel(1, 1, 1000, 1));
-    private final JSpinner speedSpinner = new JSpinner(new SpinnerNumberModel(256, 1, 100000, 64));
+    private final JSpinner speedSpinner = new JSpinner(new SpinnerNumberModel(256, 1, 10_000_000, 64));
+    private final JCheckBox maxThroughputBox = new JCheckBox("Max");
     private final JLabel clockLabel = new JLabel("Clock: idle");
 
     public CpuControlPanel() {
@@ -49,6 +53,9 @@ public final class CpuControlPanel extends JPanel {
         stepConfig.add(stepSpinner);
         stepConfig.add(new JLabel("Steps/tick:"));
         stepConfig.add(speedSpinner);
+        maxThroughputBox.setToolTipText("Max throughput: run as many steps as fit in each ~25 ms slice instead of a fixed count per tick");
+        maxThroughputBox.addActionListener(e -> speedSpinner.setEnabled(!maxThroughputBox.isSelected()));
+        stepConfig.add(maxThroughputBox);
 
         JPanel southStack = new JPanel();
         southStack.setLayout(new BoxLayout(southStack, BoxLayout.Y_AXIS));
@@ -75,7 +82,12 @@ public final class CpuControlPanel extends JPanel {
     }
 
     public void setRunAction(IntConsumer action) {
-        runButton.addActionListener(e -> action.accept((Integer) speedSpinner.getValue()));
+        runButton.addActionListener(e -> action.accept(stepsPerTick()));
+    }
+
+    /** Steps per timer tick, or {@link WorkbenchController#MAX_THROUGHPUT} when the Max box is ticked. */
+    public int stepsPerTick() {
+        return maxThroughputBox.isSelected() ? WorkbenchController.MAX_THROUGHPUT : (Integer) speedSpinner.getValue();
     }
 
     public void setStopAction(Runnable action) {
