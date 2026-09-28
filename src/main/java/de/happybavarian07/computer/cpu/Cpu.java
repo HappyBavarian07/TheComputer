@@ -282,14 +282,14 @@ public class Cpu {
             } // read r1, r2
             case RD_RS1_IMM32 -> {
                 registerFile.read(currentInstruction.regSource1Index(), regSrc1Value);
-                regSrc2Value.set(currentInstruction.immediateAddr());
-            } // read r1, set src2 to imm32
+                regSrc2Value.set(currentInstruction.opCode().immediateKind().extend(currentInstruction.immediateAddr()));
+            } // read r1, set src2 to imm32 extended per its ImmediateKind
             case RD_RS1, RS1_ONLY -> {
                 registerFile.read(currentInstruction.regSource1Index(), regSrc1Value);
             } // read r1
             case RD_IMM32 -> {
                 workingAddress.set(currentInstruction.immediateAddr());
-                regSrc2Value.set(currentInstruction.immediateAddr());
+                regSrc2Value.set(currentInstruction.opCode().immediateKind().extend(currentInstruction.immediateAddr()));
                 registerFile.read(currentInstruction.regDestIndex(), regDestValue);
             } // set workingAddress & src2 to imm32, read rd
             case IMM32_RD -> {

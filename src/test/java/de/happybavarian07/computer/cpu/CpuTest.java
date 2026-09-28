@@ -384,4 +384,52 @@ class CpuTest {
             double instructionsPerSecond
     ) {
     }
+
+    @Test
+    void testMoviNegativeSignExtendsToFull64Bits() {
+        writeInstruction(0x0000, OpCode.MOVI, 1, 0, -5);
+        writeInstruction(0x0008, OpCode.HALT, 0, 0, 0);
+        cpu.run();
+        cpu.getRegisterFile().read(1, wordBuffer);
+        assertEquals(-5L, wordBuffer.getAsLong());
+    }
+
+    @Test
+    void testAddiNegativeImmediateSubtracts() {
+        writeInstruction(0x0000, OpCode.MOVI, 1, 0, 5);
+        writeInstruction(0x0008, OpCode.ADDI, 2, 1, -1);
+        writeInstruction(0x0010, OpCode.HALT, 0, 0, 0);
+        cpu.run();
+        cpu.getRegisterFile().read(2, wordBuffer);
+        assertEquals(4L, wordBuffer.getAsLong());
+    }
+
+    @Test
+    void testAddiKeepsTopBitImmediateSigned() {
+        writeInstruction(0x0000, OpCode.MOVI, 1, 0, 0);
+        writeInstruction(0x0008, OpCode.ADDI, 2, 1, 0x80000000);
+        writeInstruction(0x0010, OpCode.HALT, 0, 0, 0);
+        cpu.run();
+        cpu.getRegisterFile().read(2, wordBuffer);
+        assertEquals(-2147483648L, wordBuffer.getAsLong());
+    }
+
+    @Test
+    void testAndiZeroExtendsTopBitMask() {
+        writeInstruction(0x0000, OpCode.MOVI, 1, 0, -1);
+        writeInstruction(0x0008, OpCode.ANDI, 2, 1, 0xFFFFFFFF);
+        writeInstruction(0x0010, OpCode.HALT, 0, 0, 0);
+        cpu.run();
+        cpu.getRegisterFile().read(2, wordBuffer);
+        assertEquals(0xFFFFFFFFL, wordBuffer.getAsLong());
+    }
+
+    @Test
+    void testCmpiNegativeImmediateSetsFlags() {
+        writeInstruction(0x0000, OpCode.MOVI, 1, 0, -3);
+        writeInstruction(0x0008, OpCode.CMPI, 1, 0, -3);
+        writeInstruction(0x0010, OpCode.HALT, 0, 0, 0);
+        cpu.run();
+        assertTrue(cpu.getSpecialRegisters().getFlagZBit().getAsBool());
+    }
 }

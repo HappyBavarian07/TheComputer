@@ -99,7 +99,7 @@ public class SymbolResolver {
                     if (ro.kind() != OperandKind.NUMBER && ro.kind() != OperandKind.LABEL) {
                         throw new ResolutionException(arg.span(), ".word requires numeric or label argument");
                     }
-                    Integer val = ro.resolvedNumericValue();
+                    Long val = ro.resolvedNumericValue();
                     if (val == null) {
                         throw new ResolutionException(arg.span(), ".word could not resolve value");
                     }
@@ -118,12 +118,12 @@ public class SymbolResolver {
                     if (ro.kind() != OperandKind.NUMBER && ro.kind() != OperandKind.LABEL) {
                         throw new ResolutionException(arg.span(), ".byte requires numeric or label argument");
                     }
-                    Integer val = ro.resolvedNumericValue();
+                    Long val = ro.resolvedNumericValue();
                     if (val == null) {
                         throw new ResolutionException(arg.span(), ".byte could not resolve value");
                     }
-                    int byteVal = val & 0xFF;
-                    out.add(new ResolvedOperand(arg, OperandKind.NUMBER, Integer.toString(byteVal), byteVal));
+                    long byteVal = val & 0xFF;
+                    out.add(new ResolvedOperand(arg, OperandKind.NUMBER, Long.toString(byteVal), byteVal));
                     addr += 1;
                 }
                 return out;
@@ -139,8 +139,8 @@ public class SymbolResolver {
                 byte[] bytes = decodeStringLiteral(sArg.text());
                 int addr = baseAddress;
                 for (byte b : bytes) {
-                    int ub = b & 0xFF;
-                    out.add(new ResolvedOperand(sArg, OperandKind.NUMBER, Integer.toString(ub), ub));
+                    long ub = b & 0xFF;
+                    out.add(new ResolvedOperand(sArg, OperandKind.NUMBER, Long.toString(ub), ub));
                     addr += 1;
                 }
                 return out;
@@ -182,11 +182,11 @@ public class SymbolResolver {
         switch (sourceOperand.kind()) {
             case REGISTER: {
                 String text = sourceOperand.text();
-                Integer idx;
+                Long idx;
                 try {
                     String digits = text.replaceAll("(?i)r", "");
                     if (!digits.isEmpty()) {
-                        idx = Integer.parseInt(digits);
+                        idx = Long.parseLong(digits);
                     } else {
                         idx = null;
                     }
@@ -200,7 +200,7 @@ public class SymbolResolver {
                 if (n == null) {
                     throw new ResolutionException(sourceOperand.span(), "expected numeric literal");
                 }
-                int value = n.intValue();
+                long value = n.longValue();
                 return new ResolvedOperand(sourceOperand, sourceOperand.kind(), sourceOperand.text(), value);
             }
             case LABEL: {
@@ -209,7 +209,7 @@ public class SymbolResolver {
                 if (location == null) {
                     throw new ResolutionException(sourceOperand.span(), "unknown symbol '" + name + "'");
                 }
-                return new ResolvedOperand(sourceOperand, sourceOperand.kind(), sourceOperand.text(), location);
+                return new ResolvedOperand(sourceOperand, sourceOperand.kind(), sourceOperand.text(), location.longValue());
             }
             case STRING: {
                 return new ResolvedOperand(sourceOperand, sourceOperand.kind(), sourceOperand.text(), null);

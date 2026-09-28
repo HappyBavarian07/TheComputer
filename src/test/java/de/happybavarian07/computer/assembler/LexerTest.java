@@ -100,4 +100,25 @@ class LexerTest {
     private static void assertTokenLexemes(List<Token> tokens, String... lexemes) {
         assertIterableEquals(List.of(lexemes), tokens.stream().map(Token::lexeme).toList());
     }
+
+    @Test
+    void tokenizesNegativeNumberLiterals() {
+        lexer.reset("movi r1, -5\naddi r1, r1, -0x10", "negatives");
+
+        List<Token> tokens = lexer.tokenizeAll();
+
+        Token minusFive = tokens.stream().filter(t -> t.lexeme().equals("-5")).findFirst().orElseThrow();
+        assertEquals(TokenKind.NUMBER, minusFive.tokenKind());
+        assertEquals(-5L, minusFive.numberValue().getAsLong());
+        Token minusHex = tokens.stream().filter(t -> t.lexeme().equals("-0x10")).findFirst().orElseThrow();
+        assertEquals(-16L, minusHex.numberValue().getAsLong());
+    }
+
+    @Test
+    void rejectsLoneMinusAndDoubleMinus() {
+        lexer.reset("movi r1, -", "lone");
+        assertThrows(LexerException.class, () -> lexer.tokenizeAll());
+        lexer.reset("movi r1, --1", "double");
+        assertThrows(LexerException.class, () -> lexer.tokenizeAll());
+    }
 }

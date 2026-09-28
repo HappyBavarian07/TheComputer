@@ -7,6 +7,7 @@ import de.happybavarian07.computer.assembler.resolver.model.ResolvedOperand;
 import de.happybavarian07.computer.assembler.resolver.model.ResolvedStatement;
 import de.happybavarian07.computer.exceptions.assembler.EncodingException;
 import de.happybavarian07.computer.isa.Condition;
+import de.happybavarian07.computer.isa.ImmediateKind;
 import de.happybavarian07.computer.isa.OpCode;
 import de.happybavarian07.computer.util.Architecture;
 
@@ -45,7 +46,7 @@ public class InstructionWordEncoder {
             case RD_RS1_IMM32, RD_RS1_OFFSET32 -> {
                 rd = reg(operands.get(0));
                 rs1 = reg(operands.get(1));
-                imm32 = imm(operands.get(2));
+                imm32 = imm(operands.get(2), opCode);
             }
             case RD_RS1 -> {
                 rd = reg(operands.get(0));
@@ -53,14 +54,14 @@ public class InstructionWordEncoder {
             }
             case RD_IMM32 -> {
                 rd = reg(operands.get(0));
-                imm32 = imm(operands.get(1));
+                imm32 = imm(operands.get(1), opCode);
             }
             case IMM32_RD -> {
-                imm32 = imm(operands.get(0));
+                imm32 = imm(operands.get(0), opCode);
                 rd = reg(operands.get(1));
             }
             case IMM32_ONLY -> {
-                imm32 = imm(operands.getFirst());
+                imm32 = imm(operands.getFirst(), opCode);
             }
             case RS1_ONLY -> {
                 rs1 = reg(operands.getFirst());
@@ -92,17 +93,19 @@ public class InstructionWordEncoder {
     }
 
     public int reg(ResolvedOperand operand) {
-        int resolvedNumericValue = operand.resolvedNumericValue();
-        if (resolvedNumericValue < 0 || resolvedNumericValue > Architecture.GPR_COUNT - 1)
+        Long resolvedNumericValue = operand.resolvedNumericValue();
+        if (resolvedNumericValue == null || resolvedNumericValue < 0 || resolvedNumericValue > Architecture.GPR_COUNT - 1)
             throw new EncodingException(operand.sourceOperand().span(), "register out of '0.." + (Architecture.GPR_COUNT - 1) + "'");
 
-        return resolvedNumericValue;
+        return resolvedNumericValue.intValue();
     }
 
-    public int imm(ResolvedOperand operand) {
-        int resolvedNumericValue = operand.resolvedNumericValue();
-        if (resolvedNumericValue < 0 || resolvedNumericValue > Architecture.MEMORY_SIZE_BYTES - 1)
-            throw new EncodingException(operand.sourceOperand().span(), "'imm16' out of '0.." + (Architecture.MEMORY_SIZE_BYTES - 1) + "'");
+    // the range depends on the opcode: see ImmediateKind
+    public long imm(ResolvedOperand operand, OpCode opCode) {
+        Long resolvedNumericValue = operand.resolvedNumericValue();
+        ImmediateKind kind = opCode.immediateKind();
+        if (resolvedNumericValue == null || !kind.fits(resolvedNumericValue))
+            throw new EncodingException(operand.sourceOperand().span(), "immediate '" + operand.text() + "' out of range for " + opCode.name().toLowerCase() + ": expected " + kind.describeRange());
 
         return resolvedNumericValue;
     }

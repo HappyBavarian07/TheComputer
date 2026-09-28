@@ -38,7 +38,7 @@ public class DirectiveDataEmitter {
                     if (operand.resolvedNumericValue() == null)
                         throw new EncodingException(operand.sourceOperand().span(), "operand must have non-null value");
 
-                    int value = operand.resolvedNumericValue();
+                    int value = operand.resolvedNumericValue().intValue();
 
                     for (int i = 0; i < 4; i++) {
                         int currentAddr = baseAddr + i;
@@ -54,7 +54,7 @@ public class DirectiveDataEmitter {
                     if (operand.resolvedNumericValue() == null)
                         throw new EncodingException(operand.sourceOperand().span(), "operand must have non-null value");
 
-                    int value = operand.resolvedNumericValue();
+                    int value = operand.resolvedNumericValue().intValue();
 
                     checkAndAddValueToSink(baseAddr, value & 0xFF, byteSink, operand.sourceOperand().span());
 

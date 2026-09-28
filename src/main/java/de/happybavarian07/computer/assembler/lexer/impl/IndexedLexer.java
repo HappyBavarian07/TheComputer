@@ -115,9 +115,20 @@ public class IndexedLexer implements Lexer {
         return new Token(kind, lexeme, OptionalLong.empty(), Optional.empty(), startLine, startColumn, startIndex, index);
         }
 
-        if (isDigit(c)) {
+        // a minus directly in front of a digit is part of the literal: '-5', '-0x10'
+        if (isDigit(c) || (c == '-' && isDigit(peekNextChar()))) {
+            boolean negative = c == '-';
+            if (negative) {
+                advance();
+            }
             String num = collectNumber();
             OptionalLong value = parseNumberValue(num);
+            if (negative) {
+                num = "-" + num;
+                if (value.isPresent()) {
+                    value = OptionalLong.of(-value.getAsLong());
+                }
+            }
             return new Token(TokenKind.NUMBER, num, value, Optional.empty(), startLine, startColumn, startIndex, index);
         }
 
