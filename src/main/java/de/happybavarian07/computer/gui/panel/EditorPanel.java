@@ -132,6 +132,12 @@ public final class EditorPanel extends JPanel {
         scrollPane.getViewport().setBackground(Theme.BG_BASE);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         scrollPane.setRowHeaderView(gutter);
+        // The host panel is not Scrollable, so the scroll bars would default to a 1 px unit increment (very slow wheel
+        // scrolling). Scroll one text line per unit and one page per block.
+        int lineHeight = sourceEditor.getFontMetrics(sourceEditor.getFont()).getHeight();
+        scrollPane.getVerticalScrollBar().setUnitIncrement(lineHeight);
+        scrollPane.getVerticalScrollBar().setBlockIncrement(lineHeight * 10);
+        scrollPane.getHorizontalScrollBar().setUnitIncrement(lineHeight);
 
         add(scrollPane, BorderLayout.CENTER);
         add(diagnosticsPanel, BorderLayout.SOUTH);
