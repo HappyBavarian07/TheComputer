@@ -6,12 +6,14 @@ import de.happybavarian07.computer.core.byteclass.Byte;
 import de.happybavarian07.computer.core.word.Word;
 import de.happybavarian07.computer.util.Architecture;
 
+import java.util.Arrays;
+
 /*
  * @Author HappyBavarian07
  * @Date August 09, 2026 | 01:17
  */
 public class Ram {
-    private final Byte[] memory;
+    private final byte[] memory;
     private final int capacityBytes;
 
     public Ram() {
@@ -23,16 +25,12 @@ public class Ram {
             throw new IllegalArgumentException("Invalid RAM capacity: " + capacityBytes);
         }
         this.capacityBytes = capacityBytes;
-        this.memory = new Byte[capacityBytes];
-        for (int i = 0; i < capacityBytes; i++) {
-            this.memory[i] = new Byte(0);
-        }
+        this.memory = new byte[capacityBytes];
+        reset();
     }
 
     public void reset() {
-        for (int i = 0; i < capacityBytes; i++) {
-            this.memory[i].set(0);
-        }
+        Arrays.fill(this.memory, (byte) 0);
     }
 
     public int getCapacityBytes() {
@@ -45,7 +43,7 @@ public class Ram {
             throw new IndexOutOfBoundsException("Tried to access RAM outside address space: " + addr);
         }
 
-        destination.set(memory[addr].getAsArray());
+        destination.set(memory[addr]);
     }
 
     public void writeByte(Address address, Byte source) {
@@ -54,7 +52,7 @@ public class Ram {
             throw new IndexOutOfBoundsException("Tried to access RAM outside address space: " + addr);
         }
 
-        memory[addr].set(source.getAsArray());
+        memory[addr] = (byte) (source.getAsInt() & 0xFF);
     }
 
     public void readWord(Address address, Word destination) {
@@ -72,13 +70,12 @@ public class Ram {
             throw new IndexOutOfBoundsException("Tried to access RAM outside address space: " + baseAddr);
         }
 
+        long raw = 0L;
         for (int k = 0; k < byteCount; k++) {
-            int wordSliceStart = (byteCount - 1 - k) * 8;
-
-            for (int j = 0; j < 8; j++) {
-                destination.set(wordSliceStart + j, memory[baseAddr + k].get(j));
-            }
+            long b = memory[baseAddr + k] & 0xFFL;
+            raw |= (b << (k * 8)); // little-endian
         }
+        destination.set(raw);
     }
 
     public void write(Address address, Word source, int byteCount) {
@@ -88,11 +85,7 @@ public class Ram {
             throw new IndexOutOfBoundsException("Tried to access RAM outside address space: " + baseAddr);
         }
         for (int k = 0; k < byteCount; k++) {
-            int wordSliceStart = (byteCount - 1 - k) * 8;
-
-            for (int j = 0; j < 8; j++) {
-                memory[baseAddr + k].set(j, source.get(wordSliceStart + j));
-            }
+            memory[baseAddr + k] = (byte) (source.getAsLong() >>> (k * 8) & 0xFF);
         }
     }
 }

@@ -118,7 +118,7 @@ public class Alu {
 
     public void shl(Word inA, Word inB, Word outResult, Bit flagZ, Bit flagN, Bit flagC, Bit flagV) {
         int count = inB.getAsInt() & (WORD_SIZE - 1);
-        outResult.set(inA.getAsArray());
+        outResult.set(inA);
 
         boolean carry = false;
         for (int s = 0; s < count; s++) {
@@ -137,7 +137,7 @@ public class Alu {
 
     public void shr(Word inA, Word inB, Word outResult, Bit flagZ, Bit flagN, Bit flagC, Bit flagV) {
         int count = inB.getAsInt() & (WORD_SIZE - 1);
-        outResult.set(inA.getAsArray());
+        outResult.set(inA);
 
         boolean carry = false;
         for (int s = 0; s < count; s++) {
@@ -155,8 +155,8 @@ public class Alu {
     }
 
     public void updateZeroFlag(Word result, Bit flagZ) {
-        for (Bit b : result.getAsArray()) {
-            if (b.getAsBool()) {
+        for (int i = 0; i < WORD_SIZE; i++) {
+            if (result.get(i).getAsBool()) {
                 flagZ.set(false);
                 return;
             }

@@ -5,6 +5,48 @@ import json
 import subprocess
 import shutil
 
+# Tickets live in docs/tasks/<module>/<ID>.md (see tools/taskboard/taskstore.py).
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "taskboard"))
+try:
+    import taskstore
+except ImportError:
+    taskstore = None
+
+
+def load_all_tasks():
+    """Markdown ticket tree first; legacy docs/tasks.json only as a fallback."""
+    if taskstore is not None:
+        tasks = taskstore.load_tasks()
+        if tasks:
+            return tasks
+    legacy = os.path.join(os.getcwd(), "docs", "tasks.json")
+    if os.path.exists(legacy):
+        try:
+            with open(legacy, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+            return raw if isinstance(raw, list) else raw.get("tasks", [])
+        except Exception as e:
+            print(f"[WARNING] Could not parse legacy tasks.json: {e}")
+    return []
+
+
+def find_task(tasks, raw_ticket, ticket_num):
+    if raw_ticket:
+        for t in tasks:
+            if str(t.get("id", "")).upper() == raw_ticket:
+                return t
+    if ticket_num:
+        for t in tasks:
+            t_id = str(t.get("id", "")).upper()
+            if t_id.endswith(f"-{ticket_num}") or t_id.endswith(ticket_num):
+                return t
+    return None
+
+
+def bullets(items):
+    return "\n".join(f"* {i}" for i in items)
+
+
 def run_cmd(cmd):
     res = subprocess.run(cmd, capture_output=True, text=True, cwd=os.getcwd())
     return res.stdout.strip()
@@ -33,31 +75,8 @@ def main():
     raw_ticket = ticket_match.group(1).upper() if ticket_match else None
     ticket_num = re.search(r'\d+', raw_ticket).group(0) if raw_ticket else None
 
-    # 4. Read tasks.json for details
-    tasks_path = os.path.join(os.getcwd(), "docs", "tasks.json")
-    task_data = None
-    if os.path.exists(tasks_path):
-        try:
-            with open(tasks_path, "r", encoding="utf-8") as f:
-                raw = json.load(f)
-                tasks = raw if isinstance(raw, list) else raw.get("tasks", [])
-                
-                # Try exact ID match first
-                if raw_ticket:
-                    for t in tasks:
-                        if t.get("id", "").upper() == raw_ticket:
-                            task_data = t
-                            break
-                
-                # Try matching by ticket number
-                if not task_data and ticket_num:
-                    for t in tasks:
-                        t_id = t.get("id", "").upper()
-                        if t_id.endswith(f"-{ticket_num}") or t_id.endswith(ticket_num):
-                            task_data = t
-                            break
-        except Exception as e:
-            print(f"[WARNING] Could not parse tasks.json: {e}")
+    # 4. Look up the ticket in docs/tasks/<module>/<ID>.md
+    task_data = find_task(load_all_tasks(), raw_ticket, ticket_num)
 
     # 5. Construct Detailed Title & Body
     if task_data:
@@ -69,18 +88,32 @@ def main():
         
         desc = task_data.get("description", "")
         criteria = task_data.get("acceptance_criteria", "")
+        notes = task_data.get("notes", "")
+        blueprint = task_data.get("blueprint") or {}
+        deps = task_data.get("dependencies") or []
+
+        extra = ""
+        if blueprint.get("goal"):
+            extra += f"\n**Goal**: {blueprint['goal']}\n"
+        if blueprint.get("scope_in"):
+            extra += f"\n**In scope**\n{bullets(blueprint['scope_in'])}\n"
+        if blueprint.get("scope_out"):
+            extra += f"\n**Out of scope**\n{bullets(blueprint['scope_out'])}\n"
+        if notes:
+            extra += f"\n**Notes**: {notes}\n"
         
         pr_body = f"""## 🎫 Ticket Context
 * **Ticket ID**: `{actual_id}`
 * **Ticket Title**: {title_str}
 * **Module**: `{module}`
 * **Phase**: `{phase_str}`
+* **Dependencies**: {", ".join(f"`{d}`" for d in deps) if deps else "none"}
 
 ---
 
 ## 📝 Summary of Changes
 {desc}
-
+{extra}
 ---
 
 ## 🧪 Acceptance Criteria & Verification

@@ -2,11 +2,15 @@ package de.happybavarian07.computer.cpu;
 
 import de.happybavarian07.computer.core.address.Address;
 import de.happybavarian07.computer.core.word.Word;
+import de.happybavarian07.computer.cpu.profiler.ExecutionProfiler;
+import de.happybavarian07.computer.exceptions.stack.StackOverflowException;
 import de.happybavarian07.computer.isa.Condition;
 import de.happybavarian07.computer.isa.OpCode;
-import de.happybavarian07.computer.memory.ram.RamBusDevice;
+import de.happybavarian07.computer.util.Architecture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import de.happybavarian07.computer.cpu.profiler.ExecutionProfiler;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -16,7 +20,6 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class CpuTest {
     private Cpu cpu;
-    private RamBusDevice ramBusDevice;
     private Word wordBuffer;
     private Address addressBuffer;
 
@@ -27,24 +30,64 @@ class CpuTest {
         addressBuffer = new Address();
     }
 
-    private void writeInstruction(int byteAddress, Condition cond, OpCode opCode, int regDest, int regSource1, int regSource2, int immediate) {
+    private void writeInstruction(
+            int byteAddress,
+            Condition cond,
+            OpCode opCode,
+            int regDest,
+            int regSource1,
+            int regSource2,
+            int immediate
+    ) {
         addressBuffer.set(byteAddress);
-        long rawInstruction = ((opCode.binaryValue().longValue() & 0xFFL) << 56)
-                | ((cond.binaryValue().longValue() & 0x0FL) << 52)
-                | ((regDest & 0x3FL) << 46)
-                | ((regSource1 & 0x3FL) << 40)
-                | ((regSource2 & 0x3FL) << 34)
-                | (immediate & 0xFFFFFFFFL);
+
+        long rawInstruction =
+                ((opCode.binaryValue().longValue() & 0xFFL) << 56)
+                        | ((cond.binaryValue().longValue() & 0x0FL) << 52)
+                        | (((long) regDest & 0x3FL) << 46)
+                        | (((long) regSource1 & 0x3FL) << 40)
+                        | (((long) regSource2 & 0x3FL) << 34)
+                        | (immediate & 0xFFFFFFFFL);
+
         wordBuffer.set(rawInstruction);
         cpu.getSystemBus().writeWord(addressBuffer, wordBuffer);
     }
 
-    private void writeInstruction(int byteAddress, OpCode opCode, int regDest, int regSource1, int regSource2, int immediate) {
-        writeInstruction(byteAddress, Condition.AL, opCode, regDest, regSource1, regSource2, immediate);
+    private void writeInstruction(
+            int byteAddress,
+            OpCode opCode,
+            int regDest,
+            int regSource1,
+            int regSource2,
+            int immediate
+    ) {
+        writeInstruction(
+                byteAddress,
+                Condition.AL,
+                opCode,
+                regDest,
+                regSource1,
+                regSource2,
+                immediate
+        );
     }
 
-    private void writeInstruction(int byteAddress, OpCode opCode, int regDest, int regSource1, int immediate) {
-        writeInstruction(byteAddress, Condition.AL, opCode, regDest, regSource1, 0, immediate);
+    private void writeInstruction(
+            int byteAddress,
+            OpCode opCode,
+            int regDest,
+            int regSource1,
+            int immediate
+    ) {
+        writeInstruction(
+                byteAddress,
+                Condition.AL,
+                opCode,
+                regDest,
+                regSource1,
+                0,
+                immediate
+        );
     }
 
     @Test
@@ -56,10 +99,12 @@ class CpuTest {
         assertFalse(cpu.isHalted());
 
         cpu.step();
+
         assertEquals(8, cpu.getSpecialRegisters().getPC().getAsInt());
         assertFalse(cpu.isHalted());
 
         cpu.step();
+
         assertTrue(cpu.isHalted());
     }
 
@@ -71,6 +116,7 @@ class CpuTest {
         cpu.run();
 
         assertTrue(cpu.isHalted());
+
         cpu.getRegisterFile().read(1, wordBuffer);
         assertEquals(0x42, wordBuffer.getAsInt());
     }
@@ -79,19 +125,22 @@ class CpuTest {
     void testImmediateLoadAndStoreProgram() {
         writeInstruction(0x0000, OpCode.MOVI, 1, 0, 42);
         writeInstruction(0x0008, OpCode.MOVI, 2, 0, 8);
-        writeInstruction(0x0010, OpCode.ADD, 1, 1, 2, 0); // r1 = r1 + r2
+        writeInstruction(0x0010, OpCode.ADD, 1, 1, 2, 0);
         writeInstruction(0x0018, OpCode.STOREW, 2, 0, 10);
         writeInstruction(0x0020, OpCode.HALT, 0, 0, 0);
 
         cpu.run();
 
         assertTrue(cpu.isHalted());
+
         cpu.getRegisterFile().read(1, wordBuffer);
         assertEquals(50, wordBuffer.getAsInt());
 
         addressBuffer.set(10);
         wordBuffer.set(0);
+
         cpu.getSystemBus().readWord(addressBuffer, wordBuffer);
+
         assertEquals(8, wordBuffer.getAsInt());
     }
 
@@ -99,12 +148,13 @@ class CpuTest {
     void testAddOperation() {
         writeInstruction(0x0000, OpCode.MOVI, 1, 0, 10);
         writeInstruction(0x0008, OpCode.MOVI, 2, 0, 20);
-        writeInstruction(0x0010, OpCode.ADD, 3, 1, 2, 0); // r3 = r1 + r2
+        writeInstruction(0x0010, OpCode.ADD, 3, 1, 2, 0);
         writeInstruction(0x0018, OpCode.HALT, 0, 0, 0);
 
         cpu.run();
 
         assertTrue(cpu.isHalted());
+
         cpu.getRegisterFile().read(3, wordBuffer);
         assertEquals(30, wordBuffer.getAsInt());
     }
@@ -113,12 +163,13 @@ class CpuTest {
     void testSubtractOperation() {
         writeInstruction(0x0000, OpCode.MOVI, 1, 0, 5);
         writeInstruction(0x0008, OpCode.MOVI, 2, 0, 1);
-        writeInstruction(0x0010, OpCode.SUB, 3, 1, 2, 0); // r3 = r1 - r2
+        writeInstruction(0x0010, OpCode.SUB, 3, 1, 2, 0);
         writeInstruction(0x0018, OpCode.HALT, 0, 0, 0);
 
         cpu.run();
 
         assertTrue(cpu.isHalted());
+
         cpu.getRegisterFile().read(3, wordBuffer);
         assertEquals(4, wordBuffer.getAsInt());
     }
@@ -145,72 +196,192 @@ class CpuTest {
         cpu.run();
 
         assertTrue(cpu.isHalted());
+
         cpu.getRegisterFile().read(2, wordBuffer);
         assertEquals(0xABCD, wordBuffer.getAsInt());
     }
 
     @Test
     void testConditionalExecutionSkippedWhenFalse() {
-        // r1 = 10, r2 = 20
         writeInstruction(0x0000, OpCode.MOVI, 1, 0, 10);
         writeInstruction(0x0008, OpCode.MOVI, 2, 0, 20);
-        // ADDEQ r3, r1, r2 (Z is false, so this should be skipped!)
-        writeInstruction(0x0010, Condition.EQ, OpCode.ADD, 3, 1, 2, 0);
+
+        writeInstruction(
+                0x0010,
+                Condition.EQ,
+                OpCode.ADD,
+                3,
+                1,
+                2,
+                0
+        );
+
         writeInstruction(0x0018, OpCode.HALT, 0, 0, 0);
 
         cpu.run();
 
         assertTrue(cpu.isHalted());
+
         cpu.getRegisterFile().read(3, wordBuffer);
-        assertEquals(0, wordBuffer.getAsInt()); // r3 remains 0 because ADDEQ was skipped
+        assertEquals(0, wordBuffer.getAsInt());
     }
 
     @Test
     void testStackOverflowTrap() {
-        cpu.getSpecialRegisters().getSP().set(de.happybavarian07.computer.util.Architecture.STACK_LIMIT_ADDRESS + 2);
+        cpu.getSpecialRegisters()
+                .getSP()
+                .set(Architecture.STACK_LIMIT_ADDRESS + 2);
+
         writeInstruction(0x0000, OpCode.PUSH, 0, 1, 0);
 
-        assertThrows(de.happybavarian07.computer.exceptions.stack.StackOverflowException.class, () -> cpu.step());
+        assertThrows(
+                StackOverflowException.class,
+                () -> cpu.step()
+        );
+
         assertTrue(cpu.isHalted());
     }
 
     @Test
     void testReset() {
         writeInstruction(0x0000, OpCode.HALT, 0, 0, 0);
+
         cpu.step();
+
         assertTrue(cpu.isHalted());
 
         cpu.reset();
+
         assertFalse(cpu.isHalted());
         assertEquals(0, cpu.getSpecialRegisters().getPC().getAsInt());
     }
 
     @Test
     void testCoreThroughputBenchmark() {
-        // Build tight loop program:
-        // 0x00: MOVI r1, 1
-        // 0x08: ADDI r2, r2, 1
-        // 0x10: JMP 0x08
+        System.out.println();
+        System.out.println("========================================");
+        System.out.println("       CPU THROUGHPUT BENCHMARK");
+        System.out.println("========================================");
+
+        BenchmarkResult tightLoop = runTightLoopBenchmark();
+        printBenchmark("Tight Loop", tightLoop);
+
+        BenchmarkResult mixedWorkload = runMixedWorkloadBenchmark();
+        printBenchmark("Mixed ISA", mixedWorkload);
+
+        runProfilerBenchmark();
+    }
+
+    private BenchmarkResult runTightLoopBenchmark() {
         writeInstruction(0x0000, OpCode.MOVI, 1, 0, 1);
         writeInstruction(0x0008, OpCode.ADDI, 2, 2, 1);
         writeInstruction(0x0010, OpCode.JMP, 0, 0, 0x0008);
 
-        // Warm up JIT
-        for (int i = 0; i < 20_000; i++) {
+        return benchmarkCpu(2_000);
+    }
+
+    private BenchmarkResult runMixedWorkloadBenchmark() {
+        cpu.reset();
+
+        writeInstruction(0x0000, OpCode.MOVI, 1, 0, 10);
+        writeInstruction(0x0008, OpCode.MOVI, 2, 0, 3);
+        writeInstruction(0x0010, OpCode.ADD, 3, 1, 2, 0);
+        writeInstruction(0x0018, OpCode.SUB, 4, 3, 2, 0);
+        writeInstruction(0x0020, OpCode.XOR, 5, 4, 1, 0);
+        writeInstruction(0x0028, OpCode.OR, 6, 5, 2, 0);
+        writeInstruction(0x0030, OpCode.AND, 7, 6, 1, 0);
+        writeInstruction(0x0038, OpCode.ADDI, 3, 3, 1);
+        writeInstruction(0x0040, OpCode.SUBI, 4, 4, 1);
+        writeInstruction(0x0048, OpCode.NOP, 0, 0, 0);
+        writeInstruction(0x0050, OpCode.JMP, 0, 0, 0x0000);
+
+        return benchmarkCpu(2_000);
+    }
+
+    private BenchmarkResult benchmarkCpu(long measurementMillis) {
+        cpu.getProfiler().reset();
+        cpu.enableProfiler();
+
+        long warmupEnd = System.nanoTime() + 2_000_000_000L;
+
+        while (System.nanoTime() < warmupEnd) {
             cpu.step();
         }
 
-        // Measure instructions per second
-        long targetSteps = 200_000;
-        long start = System.nanoTime();
-        for (long i = 0; i < targetSteps; i++) {
+        cpu.getProfiler().startMeasurement();
+
+        long deadlineNs = System.nanoTime() + measurementMillis * 1_000_000L;
+
+        while (System.nanoTime() < deadlineNs) {
             cpu.step();
         }
-        long elapsedNanos = System.nanoTime() - start;
-        double hz = targetSteps / (elapsedNanos / 1_000_000_000.0);
-        double mips = hz / 1_000_000.0;
 
-        System.out.printf("[BENCHMARK] Simulated CPU Throughput: %,.0f instructions/sec (%.2f MIPS / %.2f kHz)%n", hz, mips, hz / 1000.0);
-        assertTrue(hz > 0);
+        cpu.getProfiler().stopMeasurement();
+        cpu.disableProfiler();
+
+        long instructions = cpu.getProfiler().getTotalInstructions();
+        long elapsedNs = cpu.getProfiler().getTotalElapsedNs();
+        double instructionsPerSecond = cpu.getProfiler().getInstructionsPerSecond();
+
+        return new BenchmarkResult(
+                instructions,
+                elapsedNs,
+                instructionsPerSecond
+        );
+    }
+
+    private void runProfilerBenchmark() {
+        cpu.reset();
+
+        writeInstruction(0x0000, OpCode.MOVI, 1, 0, 10);
+        writeInstruction(0x0008, OpCode.MOVI, 2, 0, 3);
+        writeInstruction(0x0010, OpCode.ADD, 3, 1, 2, 0);
+        writeInstruction(0x0018, OpCode.SUB, 4, 3, 2, 0);
+        writeInstruction(0x0020, OpCode.XOR, 5, 4, 1, 0);
+        writeInstruction(0x0028, OpCode.OR, 6, 5, 2, 0);
+        writeInstruction(0x0030, OpCode.AND, 7, 6, 1, 0);
+        writeInstruction(0x0038, OpCode.ADDI, 3, 3, 1);
+        writeInstruction(0x0040, OpCode.SUBI, 4, 4, 1);
+        writeInstruction(0x0048, OpCode.NOP, 0, 0, 0);
+        writeInstruction(0x0050, OpCode.JMP, 0, 0, 0x0000);
+
+        ExecutionProfiler profiler = cpu.getProfiler();
+
+        profiler.reset();
+        cpu.enableProfiler();
+
+        profiler.startMeasurement();
+
+        long deadlineNs = System.nanoTime() + 1_000_000_000L;
+
+        while (System.nanoTime() < deadlineNs) {
+            cpu.step();
+        }
+
+        profiler.stopMeasurement();
+
+        cpu.disableProfiler();
+
+        System.out.println();
+        profiler.printSummary();
+    }
+
+    private void printBenchmark(String name, BenchmarkResult result) {
+        double mips = result.instructionsPerSecond / 1_000_000.0;
+
+        System.out.printf(
+                "[BENCHMARK] %-12s %,.0f instructions/sec (%s, %.3f MIPS)%n",
+                name,
+                result.instructionsPerSecond,
+                ExecutionProfiler.humanReadableRate(result.instructionsPerSecond),
+                mips
+        );
+    }
+
+    private record BenchmarkResult(
+            long instructions,
+            long elapsedNs,
+            double instructionsPerSecond
+    ) {
     }
 }

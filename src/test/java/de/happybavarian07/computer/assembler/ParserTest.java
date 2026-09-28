@@ -53,4 +53,12 @@ class ParserTest {
 
         assertThrows(ParserException.class, () -> parser.parse());
     }
+
+    @Test
+    void testConditionalJumpsAndMemory() {
+        parser.reset("jmpnz label\nstorew 1024, r1", "test.asm");
+        Program p = parser.parse();
+        assertEquals(2, p.statements().size());
+    }
 }
+

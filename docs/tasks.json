@@ -258,10 +258,55 @@
       "notes": "Required for first programs."
     },
     {
+      "id": "PERF-001",
+      "title": "CPU Execution Profiler & Step-Path Performance Optimization",
+      "module": "cpu",
+      "status": "TODO",
+      "priority": "HIGH",
+      "phase": "Phase 12.5 - Performance & Profiling",
+      "dependencies": [
+        "CPU-003",
+        "ISA-002"
+      ],
+      "description": "Build high-resolution CPU execution profiler tracking cycle time per stage (fetch, decode, condition test, ALU/memory execute, PC update). Identify bottlenecks and optimize critical hot path to achieve >5-10 MIPS simulated throughput.",
+      "acceptance_criteria": "1. ExecutionProfiler records stage breakdown (nanoseconds & percentages) for fetch, decode, ALU, and memory stages.\n2. Profiler report exposed via CLI benchmark harness and GUI workbench.\n3. Eliminate hot-path bottlenecks (e.g. replacing slow Bit-array traversals in getAsLong/set/updateZeroFlag with fast long/primitive operations while preserving Bit invariants).\n4. Simulated CPU core throughput reaches >5.0 MIPS on standard benchmark loop.",
+      "notes": "Target for immediate sprint alignment.",
+      "tags": [
+        "CPU",
+        "PROFILER",
+        "PERF",
+        "OPTIMIZATION"
+      ],
+      "blueprint": {
+        "goal": "A non-allocating CPU execution profiler to measure precise cycle times per execution stage and eliminate hot-path overhead across the simulated pipeline.",
+        "scope_in": [
+          "Stage-level timing instrumentation (Fetch, Decode, Condition, Execute, Bus, Writeback).",
+          "Fast-path optimizations for bit conversions (long-backed fast conversion, O(1) zero-flag checks).",
+          "Automated benchmark harness reporting MIPS and stage breakdown.",
+          "GUI profiler overlay / report dialog in ComputerWorkbench."
+        ],
+        "scope_out": [
+          "JIT translation to native x86 machine code.",
+          "Multi-threaded CPU cycle execution (owned by MC-001)."
+        ],
+        "topology": "cpu.profiler.ExecutionProfiler -> hooked into cpu.Cpu.step() -> reported by bench.CoreThroughputBench and gui.ComputerWorkbench.",
+        "steps": [
+          "1. Implement ExecutionProfiler collecting stage timings and per-opcode frequency.",
+          "2. Profile hot loop to identify exact bottleneck fractions.",
+          "3. Optimize Bit-array <-> long conversions in FixedWidthBits/Alu/Cpu.",
+          "4. Benchmark and verify >5-10x throughput improvement."
+        ],
+        "hazards": [
+          "Preserve bit-ownership invariants and zero-allocation contract on the fast path.",
+          "Profiling overhead must be negligible or disableable during steady-state execution."
+        ]
+      }
+    },
+    {
       "id": "DIS-001",
       "title": "Implement Disassembler (Machine \u2192 Assembly)",
       "module": "assembly",
-      "status": "TODO",
+      "status": "DONE",
       "priority": "HIGH",
       "phase": "Phase 16 - Disassembler",
       "dependencies": [
@@ -361,16 +406,57 @@
         "MEM-001",
         "SYS-001"
       ],
-      "description": "Define and implement memory-mapped I/O addresses for input/output devices.",
+      "description": "Define and implement memory-mapped I/O addresses for input/output devices (UART console text, keyboard input, real-time timer).",
       "acceptance_criteria": "1. Read/write to I/O addresses maps to device behavior.\n2. Provide example console output/input device.",
       "notes": "Keep devices simple and testable."
+    },
+    {
+      "id": "GPU-001",
+      "title": "Implement Virtual GPU & Memory-Mapped Framebuffer Display",
+      "module": "gpu",
+      "status": "TODO",
+      "priority": "MEDIUM",
+      "phase": "Phase 18.5 - Graphics & Display",
+      "dependencies": [
+        "MEM-001",
+        "SYS-001",
+        "IO-001"
+      ],
+      "description": "Build high-performance virtual GPU bus device with memory-mapped VRAM framebuffer (e.g., 320x240 / 640x480 ARGB), hardware color palettes, scanline sync, and real-time host GPU texture blitting.",
+      "acceptance_criteria": "1. VideoBusDevice exposes VRAM range with byte and 64-bit word writes.\n2. Host rendering surface renders VRAM at 60 FPS via host GPU hardware acceleration.\n3. Sample graphics demo (e.g. bouncing square / rainbow test pattern) runs in 64-bit assembly.",
+      "tags": [
+        "GPU",
+        "VRAM",
+        "GRAPHICS",
+        "MMIO"
+      ]
+    },
+    {
+      "id": "FPU-001",
+      "title": "Implement IEEE-754 Floating-Point Unit (FPU)",
+      "module": "cpu",
+      "status": "TODO",
+      "priority": "MEDIUM",
+      "phase": "Phase 19.5 - Floating Point",
+      "dependencies": [
+        "CPU-001",
+        "ISA-002"
+      ],
+      "description": "Implement 64-bit double-precision IEEE-754 floating-point arithmetic (FADD, FSUB, FMUL, FDIV, FSQRT, FCMP, FCVT) with zero-allocation bit extraction and IEEE rounding modes.",
+      "acceptance_criteria": "1. FPU computes IEEE-754 64-bit binary operations correctly (sign, exponent, mantissa).\n2. Correct handling of NaN, +Inf, -Inf, subnormals, and divide-by-zero.\n3. Complete unit test suite verifying IEEE-754 test vectors against standard math.",
+      "tags": [
+        "FPU",
+        "CPU",
+        "FLOAT",
+        "IEEE754"
+      ]
     },
     {
       "id": "LANG-001",
       "title": "Design Minimal High-Level Language",
       "module": "language",
       "status": "TODO",
-      "priority": "LOW",
+      "priority": "HIGH",
       "phase": "Phase 20 - High-Level Language",
       "dependencies": [],
       "description": "Design a tiny language syntax and semantics for first compiler target.",
@@ -634,6 +720,110 @@
           "Shared-memory races appear once execution is truly parallel - keep sequential first, add synchronization deliberately.",
           "Performance amplification: N cores x steps multiplies any per-step allocation - the step path MUST be zero-allocation.",
           "GUI must scale to N cores without per-step full rebuilds (ties to the GUI memory-view perf fix)."
+        ]
+      }
+    },
+    {
+      "id": "PERF-001",
+      "title": "Optimize Single-Core CPU Throughput & Hot Path",
+      "module": "cpu",
+      "status": "TODO",
+      "priority": "HIGH",
+      "phase": "Phase 18.5 - Single-Core Performance",
+      "dependencies": [
+        "CPU-003"
+      ],
+      "description": "Audit and eliminate per-step heap allocations and defensive copies in Cpu.step, Alu, Ram, and SystemBus; tighten the gate-level loop traversal in FixedWidthBits/Word. Establish a repeatable headless throughput benchmark as the baseline, then drive a 1.5x-2x increase in simulated MIPS with byte-identical program behavior. Do this before MC-001 so N cores do not multiply a per-step allocation cost.",
+      "acceptance_criteria": "1. A repeatable headless throughput benchmark (steps/sec) exists and is committed (baseline recorded).\n2. No per-step heap allocation on the hot path (verified by profiling / allocation counting).\n3. >= 1.5x MIPS versus the recorded baseline.\n4. All existing tests still pass; program-visible behavior is byte-identical before and after.",
+      "notes": "Perf work; do on its own branch (ticket/PERF-001-...). The headless benchmark harness doubles as the before/after measuring stick and can back a GUI 'Benchmark core' path.",
+      "tags": [
+        "CPU",
+        "PERF"
+      ],
+      "blueprint": {
+        "goal": "Make the single-core fetch-decode-execute loop as fast as the zero-allocation design intends, measured by a repeatable benchmark, so that later multicore scaling multiplies a clean hot path rather than a wasteful one.",
+        "scope_in": [
+          "Headless throughput benchmark mirroring the GUI 'Benchmark core' path (steps/sec, warmup, fixed workload).",
+          "Remove per-step allocations: new Word/Address/Bit or array copies created inside Cpu.step, Alu ops, Ram, SystemBus per instruction.",
+          "Reuse preallocated scratch for working address/result/operands across steps.",
+          "Tighten FixedWidthBits/Word inner loops (get/set, ripple traversal) on the hot path.",
+          "Record baseline and post-optimization numbers."
+        ],
+        "scope_out": [
+          "Multicore (MC-001) and any threading.",
+          "Caching (CACHE-001).",
+          "Algorithmic ISA changes or new opcodes.",
+          "JIT / bytecode compilation of the guest program."
+        ],
+        "topology": "cpu.Cpu.step -> {isa.InstructionDecoder, cpu.alu.Alu, bus.SystemBus -> memory.Ram} over core.word.Word / core.bit.FixedWidthBits. The optimization touches only the hot path objects; observable results must not change.",
+        "steps": [
+          "Build the headless benchmark (fixed loop program, warmup, timed window) and record the baseline steps/sec.",
+          "Profile / allocation-count one representative run to find per-step allocations and copies.",
+          "Replace per-step allocations with preallocated, reused scratch owned by the Cpu/Alu/bus.",
+          "Tighten FixedWidthBits/Word traversal (avoid getAsArray copies, redundant boxing) on the hot path.",
+          "Re-run the benchmark; confirm >= 1.5x and byte-identical behavior against the full test suite.",
+          "Record before/after numbers in the ticket notes."
+        ],
+        "hazards": [
+          "Bit ownership: reusing scratch must still deep-copy values into owned slots, never alias across registers/memory.",
+          "Correctness first: any speedup that changes a flag, wrap, or memory value is a regression - guard with the existing suite.",
+          "Micro-benchmark noise: warm up, use a fixed workload and a timed window, report medians.",
+          "Do not trade zero-allocation for hidden shared mutable state that breaks MC-001 later."
+        ]
+      }
+    },
+    {
+      "id": "FPU-001",
+      "title": "IEEE-754 64-bit Floating-Point Unit",
+      "module": "cpu",
+      "status": "TODO",
+      "priority": "MEDIUM",
+      "phase": "Phase 11 - Hardware Math Extensions",
+      "dependencies": [
+        "ISA-002",
+        "CORE-005"
+      ],
+      "description": "Bit-level IEEE-754 double-precision (binary64) math coprocessor: FloatAdderSubtractor, FloatMultiplier, FloatDivider, FSQRT, FCMP, and int<->float converters (FCVT), wired into a new opcode category 0x6_. Handle special values (+-0, +-inf, subnormals, quiet/signaling NaN) and round-to-nearest-even. Was explicitly out-of-scope of ISA-002 to keep the integer migration clean.",
+      "acceptance_criteria": "1. Float add/sub/mul/div produce correct binary64 results including special values and round-to-nearest-even.\n2. FCVT int<->float correct (truncation/rounding as specified).\n3. New 0x6_ opcodes decode and execute; hot path is zero-allocation.\n4. Comprehensive tests: boundary values, special values, and round-trip conversions.",
+      "notes": "Open design decision: dedicated 32 x 64-bit float registers (F0-F31, RISC-V style) vs reusing R0-R31 as raw 64-bit bit patterns (simpler wiring). Circuits live in core.float; the FPU dispatch in cpu.fpu.",
+      "tags": [
+        "CPU",
+        "FPU",
+        "ISA"
+      ],
+      "blueprint": {
+        "goal": "A real bit-level IEEE-754 binary64 unit so the machine can do floating-point math, built from the same gate/adder primitives as the integer core, without shortcutting to Java double arithmetic.",
+        "scope_in": [
+          "binary64 layout: [sign 1][exponent 11, bias 1023][fraction 52, implicit leading 1].",
+          "FloatAdderSubtractor: exponent align -> mantissa add/sub -> normalize -> round (RNE).",
+          "FloatMultiplier: exponent add (minus bias) -> 53x53 mantissa multiply -> normalize -> round.",
+          "FloatDivider: exponent subtract (plus bias) -> mantissa divide -> normalize -> round.",
+          "FSQRT, FCMP, and FCVT.F.I / FCVT.I.F converters.",
+          "ISA category 0x6_: FADD, FSUB, FMUL, FDIV, FSQRT, FCMP, FCVT_IF, FCVT_FI.",
+          "Special-value handling: +-0, +-inf, subnormals, quiet/signaling NaN."
+        ],
+        "scope_out": [
+          "SIMD / vectorized float (separate phase).",
+          "Extended/quad precision; decimal float.",
+          "Fused multiply-add (FMA) unless trivial to add after the base ops.",
+          "Full IEEE exception flags/traps beyond what the FLAGS model needs (can be a follow-up)."
+        ],
+        "topology": "core.float (FloatAdderSubtractor, FloatMultiplier, FloatDivider, converters, built on existing adders/shifters) -> cpu.fpu (dispatch) -> cpu.Cpu/isa (0x6_ opcodes, register file: F0-F31 or reused R0-R31).",
+        "steps": [
+          "Decide register model (dedicated F0-F31 vs reuse R0-R31) and add 0x6_ opcodes + operand mappings to the ISA.",
+          "Implement bit-level unpack/pack of binary64 (sign/exponent/mantissa, implicit 1, special-value detection).",
+          "Build FloatAdderSubtractor (align, add, normalize, round-to-nearest-even) with special-value paths.",
+          "Build FloatMultiplier and FloatDivider (exponent handling + mantissa multiply/divide + normalize + round).",
+          "Add FSQRT, FCMP, and the int<->float converters.",
+          "Wire FPU dispatch into Cpu.step for the 0x6_ category; keep the hot path zero-allocation.",
+          "Test against boundary/special values and round-trip conversions."
+        ],
+        "hazards": [
+          "Round-to-nearest-even is subtle: guard/round/sticky bits must be tracked through normalization.",
+          "Special values (NaN propagation, signed zero, infinities, subnormals) are the usual correctness sink - test them first.",
+          "Exponent bias off-by-one and implicit-leading-1 handling.",
+          "Bit ownership / zero-allocation contract applies to the float circuits exactly like the integer ones.",
+          "Do not fall back to Java double for the arithmetic - the point is bit-level circuits."
         ]
       }
     }

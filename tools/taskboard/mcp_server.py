@@ -2,46 +2,14 @@ import os
 import sys
 import json
 
-def get_tasks_file():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.abspath(os.path.join(script_dir, "..", ".."))
-    candidates = []
-    env_override = os.environ.get("TASKBOARD_TASKS_FILE")
-    if env_override:
-        candidates.append(os.path.abspath(env_override))
-    candidates.append(os.path.join(project_root, "docs", "tasks.json"))
-    candidates.append(os.path.join(os.getcwd(), "docs", "tasks.json"))
-
-    current = project_root
-    while True:
-        candidate = os.path.join(current, "docs", "tasks.json")
-        if candidate not in candidates:
-            candidates.append(candidate)
-        parent = os.path.dirname(current)
-        if parent == current:
-            break
-        current = parent
-
-    for candidate in candidates:
-        if os.path.exists(candidate):
-            return candidate
-
-    return os.path.join(project_root, "docs", "tasks.json")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import taskstore
 
 def load_data():
-    file_path = get_tasks_file()
-    if not os.path.exists(file_path):
-        return {"project": "TheComputer", "version": "1.0.0", "tasks": []}
-    with open(file_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return {"project": "TheComputer", "version": "1.0.0", "tasks": taskstore.load_tasks()}
 
 def save_data(data):
-    file_path = get_tasks_file()
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    tmp_path = file_path + ".tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-    os.replace(tmp_path, file_path)
+    taskstore.save_tasks(data.get("tasks", []))
 
 def handle_request(request):
     method = request.get("method")
