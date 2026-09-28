@@ -136,18 +136,24 @@ public final class WorkbenchFrame extends JFrame {
 
         JButton loadAsmButton = new JButton("Load asm");
         JButton loadBinaryButton = new JButton("Load bin");
-        JButton assembleButton = new JButton("Assemble && Load");
+        JButton saveAsmButton = new JButton("Save asm");
+        JButton saveBinaryButton = new JButton("Save bin");
+        JButton assembleButton = new JButton("Assemble & Load");
         JButton instructionsButton = new JButton("Instructions");
         JButton loadExampleButton = new JButton("Load example");
 
         loadAsmButton.addActionListener(e -> loadAssemblyFile());
         loadBinaryButton.addActionListener(e -> loadBinaryFile());
+        saveAsmButton.addActionListener(e -> saveAssemblyFile());
+        saveBinaryButton.addActionListener(e -> saveBinaryFile());
         assembleButton.addActionListener(e -> assembleCurrentProgram());
         instructionsButton.addActionListener(e -> InstructionReferenceDialog.open(this));
         loadExampleButton.addActionListener(e -> loadSelectedExample());
 
         toolbar.add(loadAsmButton);
         toolbar.add(loadBinaryButton);
+        toolbar.add(saveAsmButton);
+        toolbar.add(saveBinaryButton);
         toolbar.add(assembleButton);
         toolbar.add(instructionsButton);
         toolbar.add(new JSeparator(javax.swing.SwingConstants.VERTICAL));
@@ -167,6 +173,10 @@ public final class WorkbenchFrame extends JFrame {
         JMenu fileMenu = new JMenu("File");
         fileMenu.add(menuItem("Load assembly...", e -> loadAssemblyFile()));
         fileMenu.add(menuItem("Load binary...", e -> loadBinaryFile()));
+        fileMenu.addSeparator();
+        int menuMask = java.awt.Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
+        fileMenu.add(menuItem("Save assembly...", KeyStroke.getKeyStroke(KeyEvent.VK_S, menuMask), e -> saveAssemblyFile()));
+        fileMenu.add(menuItem("Save binary...", KeyStroke.getKeyStroke(KeyEvent.VK_S, menuMask | java.awt.event.InputEvent.SHIFT_DOWN_MASK), e -> saveBinaryFile()));
         fileMenu.addSeparator();
         fileMenu.add(menuItem("Exit", e -> dispose()));
         menuBar.add(fileMenu);
@@ -283,13 +293,71 @@ public final class WorkbenchFrame extends JFrame {
         }
     }
 
+    private void saveAssemblyFile() {
+        Path file = chooseSaveFile("asm");
+        if (file == null) {
+            return;
+        }
+        try {
+            Files.writeString(file, editorPanel.getSource(), StandardCharsets.UTF_8);
+            logPanel.append("Saved assembly file: " + file);
+        } catch (IOException ex) {
+            showError("Could not save assembly file", ex);
+        }
+    }
+
+    private void saveBinaryFile() {
+        WorkbenchController.BinaryResult result = controller.assembleToBinary(editorPanel.getSource());
+        if (!result.success()) {
+            logPanel.append("Binary export failed: " + result.message());
+            JOptionPane.showMessageDialog(this, result.message(), "Cannot save binary", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        Path file = chooseSaveFile("bin");
+        if (file == null) {
+            return;
+        }
+        try {
+            Files.write(file, result.image());
+            logPanel.append("Saved binary file: " + file + " (" + result.image().length + " bytes)");
+        } catch (IOException ex) {
+            showError("Could not save binary file", ex);
+        }
+    }
+
+    private Path lastDirectory;
+
     private Path chooseFile(String extension) {
-        JFileChooser chooser = new JFileChooser();
+        JFileChooser chooser = new JFileChooser(lastDirectory == null ? null : lastDirectory.toFile());
         chooser.setFileFilter(new FileNameExtensionFilter(extension.toUpperCase() + " files", extension));
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            return chooser.getSelectedFile().toPath();
+            Path file = chooser.getSelectedFile().toPath();
+            lastDirectory = file.toAbsolutePath().getParent();
+            return file;
         }
         return null;
+    }
+
+    /** Appends the extension if missing and asks before overwriting. */
+    private Path chooseSaveFile(String extension) {
+        JFileChooser chooser = new JFileChooser(lastDirectory == null ? null : lastDirectory.toFile());
+        chooser.setFileFilter(new FileNameExtensionFilter(extension.toUpperCase() + " files", extension));
+        chooser.setSelectedFile(new java.io.File("program." + extension));
+        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return null;
+        }
+        Path file = chooser.getSelectedFile().toPath();
+        if (!file.getFileName().toString().toLowerCase().endsWith("." + extension)) {
+            file = file.resolveSibling(file.getFileName() + "." + extension);
+        }
+        lastDirectory = file.toAbsolutePath().getParent();
+        if (Files.exists(file)) {
+            int choice = JOptionPane.showConfirmDialog(this, file.getFileName() + " already exists. Overwrite?", "Confirm overwrite", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (choice != JOptionPane.YES_OPTION) {
+                return null;
+            }
+        }
+        return file;
     }
 
     private void showError(String title, Exception ex) {

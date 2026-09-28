@@ -201,12 +201,7 @@ public final class WorkbenchController {
             return new AssembleResult(false, "No assembly source to assemble.", null, null);
         }
         try {
-            var lexer = new IndexedLexer();
-            var parser = new DefaultParser(lexer);
-            parser.reset(source, "workbench.asm");
-            Program program = parser.parse();
-
-            ResolvedProgram resolved = new SymbolResolver().resolve(program);
+            ResolvedProgram resolved = resolve(source);
             EncodedProgram encoded = new AssemblerEncoder().encodeProgram(resolved);
 
             motherboard.reset();
@@ -227,6 +222,45 @@ public final class WorkbenchController {
         } catch (LexerException | ParserException | ResolutionException | EncodingException ex) {
             return new AssembleResult(false, ex.getMessage(), null, null);
         }
+    }
+
+    public record BinaryResult(boolean success, String message, byte[] image) {
+    }
+
+    /**
+     * Assembles {@code source} into a flat binary image without touching the
+     * running machine. The image is exactly what {@link #assemble} would put
+     * in RAM from address 0 (each encoded word written as 8 little-endian
+     * bytes at its address, gaps zero-filled), so it round-trips through
+     * {@link #loadBinary}.
+     */
+    public BinaryResult assembleToBinary(String source) {
+        if (source == null || source.isBlank()) {
+            return new BinaryResult(false, "No assembly source to assemble.", null);
+        }
+        try {
+            List<EncodedWord> words = new AssemblerEncoder().encodeProgram(resolve(source)).words();
+            int size = 0;
+            for (EncodedWord w : words) {
+                size = Math.max(size, w.byteAddress() + Architecture.INSTRUCTION_BYTES);
+            }
+            byte[] image = new byte[size];
+            for (EncodedWord w : words) {
+                for (int i = 0; i < Architecture.INSTRUCTION_BYTES; i++) {
+                    image[w.byteAddress() + i] = (byte) (w.rawWord() >>> (i * 8));
+                }
+            }
+            return new BinaryResult(true, "Assembled " + image.length + " bytes.", image);
+        } catch (LexerException | ParserException | ResolutionException | EncodingException ex) {
+            return new BinaryResult(false, ex.getMessage(), null);
+        }
+    }
+
+    private ResolvedProgram resolve(String source) {
+        var parser = new DefaultParser(new IndexedLexer());
+        parser.reset(source, "workbench.asm");
+        Program program = parser.parse();
+        return new SymbolResolver().resolve(program);
     }
 
     public void loadBinary(Path file) throws IOException {
