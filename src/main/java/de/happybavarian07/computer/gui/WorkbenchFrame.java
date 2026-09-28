@@ -182,6 +182,11 @@ public final class WorkbenchFrame extends JFrame {
         fileMenu.add(menuItem("Exit", e -> dispose()));
         menuBar.add(fileMenu);
 
+        JMenu editMenu = new JMenu("Edit");
+        editMenu.add(menuItem("Undo", KeyStroke.getKeyStroke(KeyEvent.VK_Z, menuMask), e -> editorPanel.undo()));
+        editMenu.add(menuItem("Redo", KeyStroke.getKeyStroke(KeyEvent.VK_Y, menuMask), e -> editorPanel.redo()));
+        menuBar.add(editMenu);
+
         JMenu runMenu = new JMenu("Run");
         runMenu.add(menuItem("Step", KeyStroke.getKeyStroke(KeyEvent.VK_F10, 0), e -> controller.step()));
         runMenu.add(menuItem("Run", KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0), e -> {

@@ -21,17 +21,26 @@ import de.happybavarian07.computer.gui.assembly.InstructionFormatter;
 import de.happybavarian07.computer.gui.theme.Theme;
 import de.happybavarian07.computer.isa.OpCode;
 
+import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextPane;
+import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.ToolTipManager;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.text.AbstractDocument;
+import javax.swing.undo.CannotRedoException;
+import javax.swing.undo.CannotUndoException;
+import javax.swing.undo.UndoManager;
 import java.awt.BorderLayout;
 import java.awt.Font;
+import java.awt.Toolkit;
+import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.util.HashMap;
@@ -54,6 +63,7 @@ public final class EditorPanel extends JPanel {
     private final AssemblyAutoComplete autoComplete;
     private final DiagnosticsPanel diagnosticsPanel = new DiagnosticsPanel();
     private final Map<Integer, SourceSpan> sourceSpanByAddress = new HashMap<>();
+    private final UndoManager undoManager = new UndoManager();
 
     private boolean diagnosticsPending;
     private boolean diagnosticsDirty;
@@ -102,6 +112,21 @@ public final class EditorPanel extends JPanel {
                 onSourceChanged.run();
             }
         });
+        // Undo/redo of text edits only. Syntax highlighting changes character attributes, which the document also reports
+        // as undoable edits (type CHANGE); recording those would make every undo step a no-op colour change.
+        undoManager.setLimit(2000);
+        sourceEditor.getDocument().addUndoableEditListener(e -> {
+            if (e.getEdit() instanceof AbstractDocument.DefaultDocumentEvent documentEvent
+                    && documentEvent.getType() == DocumentEvent.EventType.CHANGE) {
+                return;
+            }
+            undoManager.addEdit(e.getEdit());
+        });
+        int menuMask = Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
+        bindKey(KeyStroke.getKeyStroke(KeyEvent.VK_Z, menuMask), "editor-undo", this::undo);
+        bindKey(KeyStroke.getKeyStroke(KeyEvent.VK_Y, menuMask), "editor-redo", this::redo);
+        bindKey(KeyStroke.getKeyStroke(KeyEvent.VK_Z, menuMask | java.awt.event.InputEvent.SHIFT_DOWN_MASK), "editor-redo", this::redo);
+
         sourceEditor.addMouseMotionListener(new MouseMotionAdapter() {
             @Override
             public void mouseMoved(MouseEvent e) {
@@ -158,6 +183,37 @@ public final class EditorPanel extends JPanel {
 
     public void setSource(String text) {
         sourceEditor.setText(text);
+        undoManager.discardAllEdits(); // loading a file is the baseline, not an edit to step back over
+    }
+
+    public void undo() {
+        try {
+            if (undoManager.canUndo()) {
+                undoManager.undo();
+            }
+        } catch (CannotUndoException ignored) {
+            // history and document diverged; nothing sensible to undo
+        }
+    }
+
+    public void redo() {
+        try {
+            if (undoManager.canRedo()) {
+                undoManager.redo();
+            }
+        } catch (CannotRedoException ignored) {
+            // history and document diverged; nothing sensible to redo
+        }
+    }
+
+    private void bindKey(KeyStroke keyStroke, String name, Runnable action) {
+        sourceEditor.getInputMap().put(keyStroke, name);
+        sourceEditor.getActionMap().put(name, new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                action.run();
+            }
+        });
     }
 
     public JTextPane getEditorComponent() {
