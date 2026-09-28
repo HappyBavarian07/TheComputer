@@ -29,7 +29,7 @@ public record OpcodeReference(OpCode opCode, String category, String effect, Str
             new OpcodeReference(OpCode.HALT, "System & control",
                     "Stops the CPU (isHalted = true). PC does not advance further.",
                     "—", "halt",
-                    "Opcode value is 0x03 in the running code. ISA_SPECIFICATION.md's table says 0x05 — that's a stale spec value; the code is ground truth here."),
+                    null),
 
             // --- Arithmetic ---
             new OpcodeReference(OpCode.ADD, "Arithmetic",
@@ -38,7 +38,7 @@ public record OpcodeReference(OpCode opCode, String category, String effect, Str
             new OpcodeReference(OpCode.ADDI, "Arithmetic",
                     "rd = rs1 + imm",
                     "Z N C V", "addi r1, r1, 100",
-                    "No negative immediates: the lexer has no unary-minus syntax at all. To subtract, use SUB/SUBI."),
+                    "The immediate is signed 32-bit (-2147483648..2147483647) and sign-extended, so 'addi r1, r1, -1' subtracts one. rd or rs1 may be sp (e.g. 'addi sp, sp, -16')."),
             new OpcodeReference(OpCode.SUB, "Arithmetic",
                     "rd = rs1 - rs2",
                     "Z N C V", "sub r4, r1, r2", null),
@@ -47,15 +47,16 @@ public record OpcodeReference(OpCode opCode, String category, String effect, Str
                     "Z N C V", "subi r4, r1, 8", null),
             new OpcodeReference(OpCode.MUL, "Arithmetic",
                     "rd = rs1 * rs2",
-                    "Z N V", "mul r5, r1, r2", null),
+                    "Z N V", "mul r5, r1, r2",
+                    "Two's complement multiply (low 64 bits). V = signed overflow of the full product; -7 * 2 = -14 with V clear."),
             new OpcodeReference(OpCode.DIV, "Arithmetic",
-                    "rd = rs1 / rs2 (integer division)",
-                    "Z N", "div r6, r1, r2",
-                    "Does NOT touch C or V — unlike AND/OR/etc. (which explicitly clear them), DIV leaves C/V at whatever a prior instruction last set. Don't branch on C/V right after a DIV expecting them to reflect it."),
+                    "rd = rs1 / rs2 (signed integer division, truncates toward zero)",
+                    "Z N (clears C, V)", "div r6, r1, r2",
+                    "-7 / 2 = -3 and 7 / -2 = -3. MIN / -1 wraps to MIN and sets V. Dividing by zero is a fault: the CPU halts on that instruction and reports the reason."),
             new OpcodeReference(OpCode.MOD, "Arithmetic",
                     "rd = rs1 % rs2",
-                    "Z N", "mod r7, r1, r2",
-                    "Same C/V caveat as DIV — they're left untouched, not cleared."),
+                    "Z N (clears C, V)", "mod r7, r1, r2",
+                    "Signed; the result takes the sign of the dividend: -7 % 2 = -1 and 7 % -2 = 1. Modulo by zero faults like DIV."),
             new OpcodeReference(OpCode.CMP, "Arithmetic",
                     "Computes rd - rs1 and updates flags. Does NOT write a result register — rd here is the minuend, not a destination.",
                     "Z N C V", "cmp r1, r2", null),
@@ -105,7 +106,7 @@ public record OpcodeReference(OpCode opCode, String category, String effect, Str
             new OpcodeReference(OpCode.POP, "Stack",
                     "rd = RAM[SP]; SP += 8.",
                     "—", "pop r2",
-                    "Raises the same StackOverflowException class if popping past the stack's reset top — i.e. an empty-stack pop, despite the exception's name, not just an overflow."),
+                    "Raises StackUnderflowException when the stack is empty (SP is at its reset value)."),
 
             // --- Memory ---
             new OpcodeReference(OpCode.LOADB, "Memory", "rd = zero_extend(RAM[imm]) — 8-bit load.", "—", "loadb r1, 0x100", null),
@@ -122,19 +123,12 @@ public record OpcodeReference(OpCode opCode, String category, String effect, Str
             new OpcodeReference(OpCode.STORER, "Memory",
                     "RAM[rs1 + offset] = rd — first operand is the value stored, second is the base register (same operand-role order as LOADR).",
                     "—", "storer r1, r2, 0",
-                    "ISA_SPECIFICATION.md's table writes this the other way around (\"RAM[Rd + imm32] = Rs1\"). Verified by direct test that the actual behavior is as stated above — the spec's formula has Rd/Rs1 transposed.")
+                    null)
     );
 
-    /**
-     * Shown once, not per-row: every imm32/offset32 operand above is
-     * clamped by the assembler to 0..(Architecture.MEMORY_SIZE_BYTES - 1),
-     * not the full 0..0xFFFFFFFF the 32-bit field could hold, and negative
-     * literals don't parse at all (no unary minus in the lexer). The
-     * accepted range grows with RAM size, not with the field width —
-     * see docs/ASSEMBLY_GUIDE.md §9 for the exact current bound.
-     */
+    /** Shown once, not per-row: the immediate rules come from OpCode.immediateKind(). */
     public static final String IMMEDIATE_RANGE_NOTE =
-            "Every imm32/offset32 operand above is clamped by the assembler to 0..(Architecture.MEMORY_SIZE_BYTES − 1), "
-            + "not the full 0..0xFFFFFFFF the 32-bit field could hold, and negative literals don't parse at all "
-            + "(no unary minus in the lexer). See docs/ASSEMBLY_GUIDE.md §9 for the exact current bound.";
+            "Immediates depend on the opcode: movi/addi/subi/cmpi and loadr/storer offsets are signed 32-bit (-2147483648..2147483647, "
+            + "negative literals like -5 work); andi/ori/xori take 0..4294967295 (zero-extended); shli/shri take 0..63; "
+            + "jump, call and absolute load/store addresses take 0..4294967295. Out-of-range values are assembler errors.";
 }

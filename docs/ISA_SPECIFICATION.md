@@ -73,6 +73,29 @@ Every instruction carries a 4-bit condition. If the condition evaluates to `fals
 
 ---
 
+### 3.1 Immediate kinds
+
+The 32-bit immediate field is interpreted per opcode (`OpCode.immediateKind()`); the assembler range check, the CPU and the disassembler all use the same table.
+
+| Kind | Opcodes | Assembler range | Extension to 64 bits |
+| :--- | :--- | :--- | :--- |
+| `SIGNED32` | `MOVI`, `ADDI`, `SUBI`, `CMPI`, `LOADR`/`STORER` offset | $-2^{31}$ .. $2^{31}-1$ | sign-extended |
+| `UNSIGNED32` | `ANDI`, `ORI`, `XORI` | $0$ .. $2^{32}-1$ | zero-extended |
+| `SHIFT` | `SHLI`, `SHRI` | $0$ .. $63$ | none (count) |
+| `ADDRESS` | `JMP`, `CALL`, `LOAD*`, `STORE*` (absolute) | $0$ .. $2^{32}-1$ | zero-extended |
+
+`movi r1, 0xFFFFFFFF` is therefore an error (it does not fit `SIGNED32`); build large constants with `movi`, `shli` and `ori`. Source literals may carry a leading minus (`-5`, `-0x10`).
+
+### 3.2 Stack pointer as an operand
+
+Register field value `32` names the stack pointer. Only `MOV`, `ADDI` and `SUBI` accept it (`mov r30, sp`, `mov sp, r30`, `subi sp, sp, 32`). `pc`, `ir` and `flags` are not operands. Registers `R0`..`R31` are plain general-purpose registers; `R0` is not hardwired to zero.
+
+### 3.3 Faults
+
+A division or modulo by zero does not throw out of `Cpu.step()`: the CPU halts on the faulting instruction (PC is not advanced) and `Cpu.getFaultReason()` reports why. Stack push past the limit throws `StackOverflowException`, a pop from an empty stack throws `StackUnderflowException`; both halt the CPU.
+
+---
+
 ## 4. Master OpCode Table (8-Bit Space: `0x00` – `0xFF`)
 
 ### Category 0: System & Movement (`0x00` – `0x0F`)
@@ -81,7 +104,7 @@ Every instruction carries a 4-bit condition. If the condition evaluates to `fals
 | **`NOP`** | `0x00` | `NONE` | 0 | *No operation* | 1-cycle delay/alignment. |
 | **`MOV`** | `0x01` | `RD_RS1` | 2 | $R_d = R_{s1}$ | Register-to-register copy. |
 | **`MOVI`** | `0x02` | `RD_IMM32` | 2 | $R_d = \text{imm32}$ | Direct constant load into $R_d$ (no RAM access). |
-| **`HALT`** | `0x05` | `NONE` | 0 | `isHalted = true` | Stops CPU execution. |
+| **`HALT`** | `0x03` | `NONE` | 0 | `isHalted = true` | Stops CPU execution. |
 
 ---
 
@@ -92,9 +115,9 @@ Every instruction carries a 4-bit condition. If the condition evaluates to `fals
 | **`ADDI`** | `0x11` | `RD_RS1_IMM32` | 3 | $R_d = R_{s1} + \text{sign\_extend}(\text{imm32})$ | $Z, N, C, V$ |
 | **`SUB`** | `0x12` | `RD_RS1_RS2` | 3 | $R_d = R_{s1} - R_{s2}$ | $Z, N, C, V$ |
 | **`SUBI`** | `0x13` | `RD_RS1_IMM32` | 3 | $R_d = R_{s1} - \text{sign\_extend}(\text{imm32})$ | $Z, N, C, V$ |
-| **`MUL`** | `0x14` | `RD_RS1_RS2` | 3 | $R_d = R_{s1} \times R_{s2}$ | $Z, N, V$ |
-| **`DIV`** | `0x15` | `RD_RS1_RS2` | 3 | $R_d = R_{s1} / R_{s2}$ | $Z, N$ |
-| **`MOD`** | `0x16` | `RD_RS1_RS2` | 3 | $R_d = R_{s1} \% R_{s2}$ | $Z, N$ |
+| **`MUL`** | `0x14` | `RD_RS1_RS2` | 3 | $R_d = R_{s1} \times R_{s2}$ (two's complement, low 64 bits) | $Z, N, V$ ($V$ = signed overflow) |
+| **`DIV`** | `0x15` | `RD_RS1_RS2` | 3 | $R_d = R_{s1} / R_{s2}$ (signed, truncates toward zero) | $Z, N$; $C$ and $V$ cleared, except $V$ set for $\text{MIN} / -1$. Zero divisor: CPU faults and halts. |
+| **`MOD`** | `0x16` | `RD_RS1_RS2` | 3 | $R_d = R_{s1} \% R_{s2}$ (signed, sign of the dividend) | $Z, N$; $C$ and $V$ cleared. Zero divisor: CPU faults and halts. |
 | **`CMP`** | `0x17` | `RD_RS1` | 2 | Flags on $(R_d - R_{s1})$ | $Z, N, C, V$ |
 | **`CMPI`** | `0x18` | `RD_IMM32` | 2 | Flags on $(R_d - \text{imm32})$ | $Z, N, C, V$ |
 
@@ -148,7 +171,7 @@ Every instruction carries a 4-bit condition. If the condition evaluates to `fals
 | **`STOREI`**| `0x56` | `IMM32_RD` | 2 | 32-bit | $\text{RAM}[\text{imm32}] = R_d[31:0]$ |
 | **`STOREW`**| `0x57` | `IMM32_RD` | 2 | 64-bit | **$\text{RAM}[\text{imm32}] = R_d[63:0]$ (8 bytes)** |
 | **`LOADR`** | `0x58` | `RD_RS1_OFFSET32` | 3 | 64-bit | $R_d = \text{RAM}[R_{s1} + \text{imm32}]$ |
-| **`STORER`**| `0x59` | `RD_RS1_OFFSET32` | 3 | 64-bit | $\text{RAM}[R_d + \text{imm32}] = R_{s1}$ |
+| **`STORER`**| `0x59` | `RD_RS1_OFFSET32` | 3 | 64-bit | $\text{RAM}[R_{s1} + \text{imm32}] = R_d$ |
 
 ---
 

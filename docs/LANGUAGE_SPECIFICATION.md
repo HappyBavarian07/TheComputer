@@ -185,7 +185,7 @@ The CPU provides 32 general-purpose 64-bit registers (`R0`–`R31`).
 
 | Register | Name | Role | Saver |
 | :--- | :--- | :--- | :--- |
-| `R0` | `ZERO` / Scratch | Hardwired zero or immediate scratch | - |
+| `R0` | `T` / Scratch | Plain scratch register (not hardwired to zero) | Caller |
 | `R1` | `A0` / `RET` | Argument 1 / Return Value (Integer/Pointer) | Caller |
 | `R2` | `A1` / `RET2` | Argument 2 / Secondary Return Value | Caller |
 | `R3` | `A2` | Argument 3 | Caller |
@@ -194,7 +194,7 @@ The CPU provides 32 general-purpose 64-bit registers (`R0`–`R31`).
 | `R6` | `A5` | Argument 6 | Caller |
 | `R7`–`R15` | `T0`–`T8` | Temporary Scratch Registers | Caller |
 | `R16`–`R28` | `S0`–`S12` | Saved Registers (Must preserve across calls) | Callee |
-| `R29` | `SP` | Stack Pointer (Points to current top of stack) | Hardware / Callee |
+| `R29` | `S13` | Saved register (the stack pointer is a special register, reachable as `sp` in `mov`/`addi`/`subi`) | Callee |
 | `R30` | `FP` | Frame Pointer (Base of current activation record)| Callee |
 | `R31` | `LR` / Scratch | Link Register / Scratch | Caller |
 
@@ -205,7 +205,7 @@ Stack grows downward (from high memory to low memory).
 +------------------------------------+  <- High Memory (Previous SP)
 |   Arguments 7..N (pushed by caller)|
 +------------------------------------+
-|   Return Address (pushed by CALL)  |  [FP + 16]
+|   Return Address (pushed by CALL)  |  [FP + 8]
 +------------------------------------+
 |   Saved Frame Pointer (old FP)     |  [FP]      <- Current FP (R30)
 +------------------------------------+

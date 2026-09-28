@@ -38,7 +38,7 @@ import java.util.regex.Pattern;
  * reusable component rather than fields scattered across the workbench.
  */
 public final class AssemblyAutoComplete {
-    private static final List<String> DIRECTIVE_ITEMS = List.of(".word", ".byte", ".ascii", ".org");
+    private static final List<String> DIRECTIVE_ITEMS = List.of(".word", ".byte", ".ascii", ".org", ".align");
     private static final List<String> SPECIAL_REGISTERS = List.of("pc", "sp", "ir", "flags");
     private static final Pattern LABEL_REFERENCE_PATTERN = Pattern.compile("(?m)^\\s*([A-Za-z_][\\w]*)\\s*:");
 
@@ -391,6 +391,7 @@ public final class AssemblyAutoComplete {
             case ".byte" -> "Emit one byte.";
             case ".ascii" -> "Emit a string as bytes.";
             case ".org" -> "Move the output address.";
+            case ".align" -> "Pad with zeros to the next multiple of N (a power of two). Instructions must be 8-byte aligned.";
             default -> "";
         };
     }
@@ -398,7 +399,7 @@ public final class AssemblyAutoComplete {
     private String specialRegisterDescription(String name) {
         return switch (name) {
             case "pc" -> "Program counter (not a usable instruction operand today)";
-            case "sp" -> "Stack pointer (not a usable instruction operand today)";
+            case "sp" -> "Stack pointer (usable in mov, addi and subi only)";
             case "ir" -> "Instruction register (not a usable instruction operand today)";
             case "flags" -> "Flag register view (not a usable instruction operand today)";
             default -> "";
