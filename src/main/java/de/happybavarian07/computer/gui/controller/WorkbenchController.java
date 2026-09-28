@@ -1,6 +1,7 @@
 package de.happybavarian07.computer.gui.controller;
 
 import de.happybavarian07.computer.assembler.encoder.AssemblerEncoder;
+import de.happybavarian07.computer.assembler.AssemblerService;
 import de.happybavarian07.computer.assembler.encoder.model.EncodedProgram;
 import de.happybavarian07.computer.assembler.encoder.model.EncodedWord;
 import de.happybavarian07.computer.assembler.lexer.impl.IndexedLexer;
@@ -86,7 +87,7 @@ public final class WorkbenchController {
             motherboard.stepSystem();
             log("Step complete.");
             if (motherboard.getCpu().isHalted()) {
-                log("CPU reached HALT.");
+                log(motherboard.getCpu().isFaulted() ? "CPU fault: " + motherboard.getCpu().getFaultReason() : "CPU reached HALT.");
             }
         } catch (RuntimeException ex) {
             log("Execution error: " + ex.getMessage());
@@ -131,7 +132,7 @@ public final class WorkbenchController {
             if (!runRequested.get() || motherboard.getCpu().isHalted()) {
                 runTimer.stop();
                 if (motherboard.getCpu().isHalted()) {
-                    log("Run complete: CPU halted.");
+                    log(motherboard.getCpu().isFaulted() ? "CPU fault: " + motherboard.getCpu().getFaultReason() : "Run complete: CPU halted.");
                 }
                 fireStateChanged();
                 onTick.run();
@@ -201,18 +202,13 @@ public final class WorkbenchController {
             return new AssembleResult(false, "No assembly source to assemble.", null, null);
         }
         try {
-            ResolvedProgram resolved = resolve(source);
-            EncodedProgram encoded = new AssemblerEncoder().encodeProgram(resolved);
+            AssemblerService.Result assembled = new AssemblerService().assemble(source, "workbench.asm");
+            ResolvedProgram resolved = assembled.resolved();
+            EncodedProgram encoded = assembled.encoded();
 
             motherboard.reset();
             traceEntries.clear();
-            Word wordBuf = new Word();
-            Address addrBuf = new Address();
-            for (EncodedWord w : encoded.words()) {
-                addrBuf.set(w.byteAddress());
-                wordBuf.set(w.rawWord());
-                motherboard.getSystemBus().writeWord(addrBuf, wordBuf);
-            }
+            loadImage(assembled.image());
             motherboard.getCpu().getSpecialRegisters().getPC().set(0);
             motherboard.getCpu().getSpecialRegisters().getSP().set(Architecture.STACK_BASE_ADDRESS);
 
@@ -239,28 +235,26 @@ public final class WorkbenchController {
             return new BinaryResult(false, "No assembly source to assemble.", null);
         }
         try {
-            List<EncodedWord> words = new AssemblerEncoder().encodeProgram(resolve(source)).words();
-            int size = 0;
-            for (EncodedWord w : words) {
-                size = Math.max(size, w.byteAddress() + Architecture.INSTRUCTION_BYTES);
-            }
-            byte[] image = new byte[size];
-            for (EncodedWord w : words) {
-                for (int i = 0; i < Architecture.INSTRUCTION_BYTES; i++) {
-                    image[w.byteAddress() + i] = (byte) (w.rawWord() >>> (i * 8));
-                }
-            }
+            byte[] image = new AssemblerService().assemble(source, "workbench.asm").image();
             return new BinaryResult(true, "Assembled " + image.length + " bytes.", image);
         } catch (LexerException | ParserException | ResolutionException | EncodingException ex) {
             return new BinaryResult(false, ex.getMessage(), null);
         }
     }
 
-    private ResolvedProgram resolve(String source) {
-        var parser = new DefaultParser(new IndexedLexer());
-        parser.reset(source, "workbench.asm");
-        Program program = parser.parse();
-        return new SymbolResolver().resolve(program);
+    // writes the image into RAM as 8-byte little-endian words from address 0; the last partial word is zero-padded
+    private void loadImage(byte[] image) {
+        Word wordBuf = new Word();
+        Address addrBuf = new Address();
+        for (int offset = 0; offset < image.length; offset += Architecture.INSTRUCTION_BYTES) {
+            long raw = 0;
+            for (int byteIndex = 0; byteIndex < Architecture.INSTRUCTION_BYTES && offset + byteIndex < image.length; byteIndex++) {
+                raw |= ((long) (image[offset + byteIndex] & 0xFF)) << (byteIndex * 8);
+            }
+            addrBuf.set(offset);
+            wordBuf.set(raw);
+            motherboard.getSystemBus().writeWord(addrBuf, wordBuf);
+        }
     }
 
     public void loadBinary(Path file) throws IOException {
@@ -268,14 +262,7 @@ public final class WorkbenchController {
         traceEntries.clear();
         byte[] binary = Files.readAllBytes(file);
 
-        for (int offset = 0; offset < binary.length; offset += Architecture.INSTRUCTION_BYTES) {
-            long raw = 0;
-            for (int byteIndex = 0; byteIndex < Architecture.INSTRUCTION_BYTES && offset + byteIndex < binary.length; byteIndex++) {
-                raw |= ((long) (binary[offset + byteIndex] & 0xFF)) << (byteIndex * 8);
-            }
-            motherboard.getSystemBus().writeWord(new Address(offset), new Word(raw));
-        }
-
+        loadImage(binary);
         motherboard.getCpu().getSpecialRegisters().getPC().set(0);
         motherboard.getCpu().getSpecialRegisters().getSP().set(Architecture.STACK_BASE_ADDRESS);
         log("Loaded binary file: " + file);

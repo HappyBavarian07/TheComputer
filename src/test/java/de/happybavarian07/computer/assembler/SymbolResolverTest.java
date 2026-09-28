@@ -138,12 +138,14 @@ public class SymbolResolverTest {
     }
 
     @Test
-    void pass2UnalignedWordThrows() {
+    void unalignedWordIsAcceptedButUnalignedInstructionThrows() {
         parser.reset(".org 1\n.word 1", "file.asm");
         Program program = parser.parse();
+        resolver.resolve(program);
 
-        SymbolResolver.Pass1Result p1 = resolver.pass1(program);
-        assertThrows(ResolutionException.class, () -> resolver.resolve(program));
+        parser.reset(".org 4\nhalt", "file.asm");
+        Program misaligned = parser.parse();
+        assertThrows(ResolutionException.class, () -> resolver.resolve(misaligned));
     }
 
     @Test
@@ -153,6 +155,7 @@ public class SymbolResolverTest {
                         start:     nop
                         .org 16
                         data: .word start
+                        .align 8
                         jmp data
                         """;
         parser.reset(src, "file.asm");

@@ -40,6 +40,10 @@ public class SymbolResolver {
                 symbolTable.map(name, locationCounter);
             }
             if (statement instanceof InstructionStatement) {
+                if (locationCounter % Architecture.INSTRUCTION_BYTES != 0) {
+                    throw new ResolutionException(statement.span(), "instruction at address " + locationCounter
+                            + " is not " + Architecture.INSTRUCTION_BYTES + "-byte aligned; use .align " + Architecture.INSTRUCTION_BYTES + " or .org before it");
+                }
                 locationCounter += Architecture.INSTRUCTION_BYTES;
             } else if (statement instanceof DirectiveStatement directiveStatement) {
                 locationCounter = applyDirective(locationCounter, directiveStatement);
@@ -102,9 +106,6 @@ public class SymbolResolver {
                     Long val = ro.resolvedNumericValue();
                     if (val == null) {
                         throw new ResolutionException(arg.span(), ".word could not resolve value");
-                    }
-                    if ((addr % 4) != 0) {
-                        throw new ResolutionException(directiveStatement.span(), "unaligned .word at address " + addr);
                     }
                     out.add(new ResolvedOperand(arg, OperandKind.NUMBER, arg.text(), val));
                     addr += 4;
@@ -241,6 +242,13 @@ public class SymbolResolver {
             byte[] bytes = decodeStringLiteral(arg.text());
             return locationCounter + bytes.length;
         }
+        if (".align".equalsIgnoreCase(name)) {
+            long boundary = parseSingleNumber(directiveStatement, ".align");
+            if (boundary < 1 || boundary > 4096 || (boundary & (boundary - 1)) != 0) {
+                throw new ResolutionException(directiveStatement.span(), ".align expects a power of two between 1 and 4096, got " + boundary);
+            }
+            return (int) ((locationCounter + boundary - 1) / boundary * boundary);
+        }
         if (".org".equalsIgnoreCase(name)) {
             int address = parseOrgAddress(directiveStatement);
             if (address < 0 || address >= Architecture.MEMORY_SIZE_BYTES) {
@@ -252,6 +260,17 @@ public class SymbolResolver {
         }
 
         return locationCounter;
+    }
+
+    private long parseSingleNumber(DirectiveStatement directiveStatement, String directiveName) {
+        if (directiveStatement.arguments().size() != 1) {
+            throw new ResolutionException(directiveStatement.span(), directiveName + " expects exactly one argument");
+        }
+        var argument = directiveStatement.arguments().getFirst();
+        if (!(argument.numericValue() instanceof Number number)) {
+            throw new ResolutionException(argument.span(), directiveName + " requires a numeric argument");
+        }
+        return number.longValue();
     }
 
     private int parseOrgAddress(DirectiveStatement directiveStatement) {
