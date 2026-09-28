@@ -86,7 +86,10 @@ a source-code author. Confirmed with the user on 2026-08-13:
 
 ## 🛠️ Taskboard Tooling
 
-* Task DB: `docs/tasks.json`. MCP task server: `tools/taskboard/mcp_server.py`
+* Task DB: **`docs/tasks/<module>/<TICKET>.md`** (md-with-frontmatter tree — source of
+  truth as of the 2026-09 migration; `docs/tasks.json` is legacy and can be deleted).
+  Both the GUI and MCP read/write it through `tools/taskboard/taskstore.py`
+  (`load_tasks`/`save_tasks`). MCP task server: `tools/taskboard/mcp_server.py`
   (`list_tasks`, `get_task`, `create_task`, `update_task`, `update_task_status`,
   `get_phases`, `get_dependency_graph`). `create_task`/`update_task` accept the
   full blueprint schema.
