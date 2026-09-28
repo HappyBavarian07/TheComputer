@@ -1,0 +1,407 @@
+package de.happybavarian07.computer.gui.controller;
+
+import de.happybavarian07.computer.assembler.encoder.AssemblerEncoder;
+import de.happybavarian07.computer.assembler.encoder.model.EncodedProgram;
+import de.happybavarian07.computer.assembler.encoder.model.EncodedWord;
+import de.happybavarian07.computer.assembler.lexer.impl.IndexedLexer;
+import de.happybavarian07.computer.assembler.parser.DefaultParser;
+import de.happybavarian07.computer.assembler.parser.model.Program;
+import de.happybavarian07.computer.assembler.resolver.SymbolResolver;
+import de.happybavarian07.computer.assembler.resolver.model.ResolvedProgram;
+import de.happybavarian07.computer.core.address.Address;
+import de.happybavarian07.computer.core.word.Word;
+import de.happybavarian07.computer.disassembler.Disassembler;
+import de.happybavarian07.computer.exceptions.assembler.EncodingException;
+import de.happybavarian07.computer.exceptions.assembler.LexerException;
+import de.happybavarian07.computer.exceptions.assembler.ParserException;
+import de.happybavarian07.computer.exceptions.assembler.ResolutionException;
+import de.happybavarian07.computer.gui.util.NumberFormats;
+import de.happybavarian07.computer.isa.Instruction;
+import de.happybavarian07.computer.system.Motherboard;
+import de.happybavarian07.computer.util.Architecture;
+
+import javax.swing.Timer;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/**
+ * Owns the emulated machine ({@link Motherboard}) and every operation that
+ * mutates it (reset, step, run, assemble, load). Carries no Swing types in
+ * its public surface beyond {@link Timer}, which is just an EDT-safe
+ * scheduler, not a visual component. Panels read state through the getters
+ * here and are notified of changes via {@link WorkbenchListener} instead of
+ * touching {@link Motherboard} directly.
+ */
+public final class WorkbenchController {
+    private final Motherboard motherboard = new Motherboard();
+    private final Disassembler disassembler = new Disassembler();
+    private final AtomicBoolean runRequested = new AtomicBoolean(false);
+    private final Deque<String> traceEntries = new ArrayDeque<>();
+    private final List<WorkbenchListener> listeners = new CopyOnWriteArrayList<>();
+
+    private Timer runTimer;
+    private long runStartNanos;
+    private long runStepsTotal;
+
+    public void addListener(WorkbenchListener listener) {
+        listeners.add(listener);
+    }
+
+    public Motherboard getMotherboard() {
+        return motherboard;
+    }
+
+    public Disassembler getDisassembler() {
+        return disassembler;
+    }
+
+    public boolean isRunning() {
+        return runTimer != null && runTimer.isRunning();
+    }
+
+    public List<String> getTraceEntries() {
+        return List.copyOf(traceEntries);
+    }
+
+    // --- lifecycle -----------------------------------------------------
+
+    public void reset() {
+        motherboard.reset();
+        runRequested.set(false);
+        traceEntries.clear();
+        log("Machine reset.");
+        fireStateChanged();
+    }
+
+    public void step() {
+        int pcBefore = motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
+        long rawBefore = readMemoryWord(pcBefore);
+        try {
+            motherboard.stepSystem();
+            log("Step complete.");
+            if (motherboard.getCpu().isHalted()) {
+                log("CPU reached HALT.");
+            }
+        } catch (RuntimeException ex) {
+            log("Execution error: " + ex.getMessage());
+            recordTrace("step", pcBefore, rawBefore, pcBefore);
+            fireStateChanged();
+            return;
+        }
+        recordTrace("step", pcBefore, rawBefore, motherboard.getCpu().getSpecialRegisters().getPC().getAsInt());
+        fireStateChanged();
+    }
+
+    public void stepMany(int count) {
+        for (int i = 0; i < count; i++) {
+            if (motherboard.getCpu().isHalted()) {
+                log("CPU already halted before step " + (i + 1) + ".");
+                break;
+            }
+            int pcBefore = motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
+            long rawBefore = readMemoryWord(pcBefore);
+            try {
+                motherboard.stepSystem();
+                recordTrace("step", pcBefore, rawBefore, motherboard.getCpu().getSpecialRegisters().getPC().getAsInt());
+            } catch (RuntimeException ex) {
+                log("Execution error after step " + (i + 1) + ": " + ex.getMessage());
+                recordTrace("step", pcBefore, rawBefore, pcBefore);
+                break;
+            }
+        }
+        log("Advanced " + count + " steps.");
+        fireStateChanged();
+    }
+
+    /** Runs on a Swing {@link Timer} tick until halted or {@link #stopRun()}. */
+    public void startRun(int stepsPerTick, Runnable onTick) {
+        if (isRunning()) {
+            return;
+        }
+        runRequested.set(true);
+        runStartNanos = System.nanoTime();
+        runStepsTotal = 0;
+        runTimer = new Timer(30, e -> {
+            if (!runRequested.get() || motherboard.getCpu().isHalted()) {
+                runTimer.stop();
+                if (motherboard.getCpu().isHalted()) {
+                    log("Run complete: CPU halted.");
+                }
+                fireStateChanged();
+                onTick.run();
+                return;
+            }
+            int pcBefore = motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
+            long rawBefore = readMemoryWord(pcBefore);
+            int executed = 0;
+            String error = null;
+            try {
+                for (int i = 0; i < stepsPerTick; i++) {
+                    if (motherboard.getCpu().isHalted()) {
+                        break;
+                    }
+                    motherboard.stepSystem();
+                    executed++;
+                }
+            } catch (RuntimeException ex) {
+                error = ex.getMessage();
+            }
+            runStepsTotal += executed;
+            recordTrace("run", pcBefore, rawBefore, motherboard.getCpu().getSpecialRegisters().getPC().getAsInt());
+            fireStateChanged();
+            onTick.run();
+            if (error != null) {
+                runTimer.stop();
+                log("Execution error: " + error);
+            }
+        });
+        runTimer.setInitialDelay(0);
+        runTimer.start();
+    }
+
+    public void stopRun() {
+        runRequested.set(false);
+        if (runTimer != null) {
+            runTimer.stop();
+        }
+        log("Run stopped by user.");
+    }
+
+    /** Hz reading for the current/last run, or -1 if nothing has run yet. */
+    public double currentRunHz() {
+        long elapsed = System.nanoTime() - runStartNanos;
+        if (elapsed <= 0) {
+            return -1;
+        }
+        return runStepsTotal / (elapsed / 1_000_000_000.0);
+    }
+
+    public long currentRunSteps() {
+        return runStepsTotal;
+    }
+
+    // --- assembling / loading -------------------------------------------
+
+    public record AssembleResult(boolean success, String message, EncodedProgram encoded, ResolvedProgram resolved) {
+    }
+
+    /**
+     * Assembles {@code source} in-process (lexer to parser to resolver to
+     * encoder, no temp files) and, on success, loads the result into RAM
+     * and resets PC/SP. On failure, RAM is left untouched.
+     */
+    public AssembleResult assemble(String source) {
+        if (source == null || source.isBlank()) {
+            return new AssembleResult(false, "No assembly source to assemble.", null, null);
+        }
+        try {
+            var lexer = new IndexedLexer();
+            var parser = new DefaultParser(lexer);
+            parser.reset(source, "workbench.asm");
+            Program program = parser.parse();
+
+            ResolvedProgram resolved = new SymbolResolver().resolve(program);
+            EncodedProgram encoded = new AssemblerEncoder().encodeProgram(resolved);
+
+            motherboard.reset();
+            traceEntries.clear();
+            Word wordBuf = new Word();
+            Address addrBuf = new Address();
+            for (EncodedWord w : encoded.words()) {
+                addrBuf.set(w.byteAddress());
+                wordBuf.set(w.rawWord());
+                motherboard.getSystemBus().writeWord(addrBuf, wordBuf);
+            }
+            motherboard.getCpu().getSpecialRegisters().getPC().set(0);
+            motherboard.getCpu().getSpecialRegisters().getSP().set(Architecture.STACK_BASE_ADDRESS);
+
+            log("Assembly succeeded and machine code loaded into RAM.");
+            fireStateChanged();
+            return new AssembleResult(true, "Source parses and encodes cleanly.", encoded, resolved);
+        } catch (LexerException | ParserException | ResolutionException | EncodingException ex) {
+            return new AssembleResult(false, ex.getMessage(), null, null);
+        }
+    }
+
+    public void loadBinary(Path file) throws IOException {
+        motherboard.reset();
+        traceEntries.clear();
+        byte[] binary = Files.readAllBytes(file);
+
+        for (int offset = 0; offset < binary.length; offset += Architecture.INSTRUCTION_BYTES) {
+            long raw = 0;
+            for (int byteIndex = 0; byteIndex < Architecture.INSTRUCTION_BYTES && offset + byteIndex < binary.length; byteIndex++) {
+                raw |= ((long) (binary[offset + byteIndex] & 0xFF)) << (byteIndex * 8);
+            }
+            motherboard.getSystemBus().writeWord(new Address(offset), new Word(raw));
+        }
+
+        motherboard.getCpu().getSpecialRegisters().getPC().set(0);
+        motherboard.getCpu().getSpecialRegisters().getSP().set(Architecture.STACK_BASE_ADDRESS);
+        log("Loaded binary file: " + file);
+        fireStateChanged();
+    }
+
+    // --- memory / registers ---------------------------------------------
+
+    public long readMemoryWord(int address) {
+        Word word = new Word();
+        try {
+            motherboard.getSystemBus().readWord(new Address(address), word);
+        } catch (RuntimeException ex) {
+            word.set(0);
+        }
+        return word.getAsLong();
+    }
+
+    public void writeMemoryWord(int address, long value) {
+        motherboard.getSystemBus().writeWord(new Address(address), new Word(value));
+        fireStateChanged();
+    }
+
+    public Instruction decodeInstruction(long rawWord) {
+        Instruction instruction = new Instruction();
+        motherboard.getCpu().getInstructionDecoder().decodeNullable(new Word(rawWord), instruction);
+        return instruction;
+    }
+
+    public Long resolveWatchValue(String token) {
+        String normalized = token.toLowerCase();
+        switch (normalized) {
+            case "pc":
+                return (long) motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
+            case "sp":
+                return (long) motherboard.getCpu().getSpecialRegisters().getSP().getAsInt();
+            case "ir":
+                return motherboard.getCpu().getSpecialRegisters().getIR().getAsLong();
+            case "flags": {
+                long flags = 0;
+                var special = motherboard.getCpu().getSpecialRegisters();
+                if (special.isZero()) flags |= 1;
+                if (special.isNegative()) flags |= 2;
+                if (special.isCarry()) flags |= 4;
+                if (special.isOverflow()) flags |= 8;
+                return flags;
+            }
+            default:
+                if (normalized.matches("r\\d+")) {
+                    int registerIndex = Integer.parseInt(normalized.substring(1));
+                    if (registerIndex < 0 || registerIndex >= Architecture.GPR_COUNT) {
+                        return null;
+                    }
+                    Word value = new Word();
+                    motherboard.getCpu().getRegisterFile().read(registerIndex, value);
+                    return value.getAsLong();
+                }
+        }
+        Integer address = NumberFormats.parseFlexibleInteger(token);
+        if (address == null || address < 0 || address >= Architecture.MEMORY_SIZE_BYTES) {
+            return null;
+        }
+        return readMemoryWord(address);
+    }
+
+    public int findMemoryValue(long target) {
+        for (int address = 0; address < Architecture.MEMORY_SIZE_BYTES; address += Architecture.INSTRUCTION_BYTES) {
+            if (readMemoryWord(address) == target) {
+                return address;
+            }
+        }
+        return -1;
+    }
+
+    // --- benchmark ---------------------------------------------------
+
+    public record BenchmarkResult(double hz, double mips, long steps, double elapsedSeconds, boolean capped) {
+    }
+
+    /** Runs the currently-loaded program on a throwaway core, off the EDT. */
+    public void benchmarkCoreAsync(java.util.function.Consumer<BenchmarkResult> onDone) {
+        int wordCount = Math.min(1024, Architecture.MEMORY_FREE_END / Architecture.INSTRUCTION_BYTES);
+        long[] image = new long[wordCount];
+        for (int i = 0; i < image.length; i++) {
+            image[i] = readMemoryWord(i * Architecture.INSTRUCTION_BYTES);
+        }
+        int startSp = Architecture.STACK_BASE_ADDRESS;
+
+        Thread worker = new Thread(() -> {
+            int stepCap = 5_000_000;
+            Motherboard bench = new Motherboard();
+            for (int w = 0; w < 3; w++) {
+                runProgramOnce(bench, image, startSp, stepCap);
+            }
+            long steps = 0;
+            boolean capped = false;
+            long start = System.nanoTime();
+            while (System.nanoTime() - start < 300_000_000L) {
+                long s = runProgramOnce(bench, image, startSp, stepCap);
+                if (s < 0) {
+                    capped = true;
+                    steps += stepCap;
+                } else {
+                    steps += s;
+                }
+            }
+            long elapsed = System.nanoTime() - start;
+            double elapsedSec = elapsed / 1_000_000_000.0;
+            double hz = steps / elapsedSec;
+            double mips = hz / 1_000_000.0;
+            long finalSteps = steps;
+            boolean finalCapped = capped;
+            javax.swing.SwingUtilities.invokeLater(() -> onDone.accept(new BenchmarkResult(hz, mips, finalSteps, elapsedSec, finalCapped)));
+        }, "core-benchmark");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    private long runProgramOnce(Motherboard bench, long[] image, int startSp, int cap) {
+        bench.reset();
+        for (int i = 0; i < image.length; i++) {
+            bench.getSystemBus().writeWord(new Address(i * Architecture.INSTRUCTION_BYTES), new Word(image[i]));
+        }
+        bench.getCpu().getSpecialRegisters().getPC().set(0);
+        bench.getCpu().getSpecialRegisters().getSP().set(startSp);
+        long steps = 0;
+        try {
+            while (!bench.getCpu().isHalted() && steps < cap) {
+                bench.stepSystem();
+                steps++;
+            }
+        } catch (RuntimeException ex) {
+            return steps;
+        }
+        if (steps >= cap && !bench.getCpu().isHalted()) {
+            return -1;
+        }
+        return steps;
+    }
+
+    // --- trace / listeners -----------------------------------------------
+
+    private void recordTrace(String phase, int pcBefore, long rawWord, int pcAfter) {
+        String decoded = disassembler.disassemble(rawWord);
+        String entry = phase + " @" + String.format("0x%04X", pcBefore) + " -> " + decoded + " | next " + String.format("0x%04X", pcAfter);
+        traceEntries.addFirst(entry);
+        while (traceEntries.size() > 24) {
+            traceEntries.removeLast();
+        }
+    }
+
+    private void log(String message) {
+        for (WorkbenchListener listener : listeners) {
+            listener.onLog(message);
+        }
+    }
+
+    private void fireStateChanged() {
+        for (WorkbenchListener listener : listeners) {
+            listener.onStateChanged();
+        }
+    }
+}
