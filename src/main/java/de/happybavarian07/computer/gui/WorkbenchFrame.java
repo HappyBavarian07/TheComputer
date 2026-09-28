@@ -31,6 +31,7 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.event.KeyEvent;
+import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -328,7 +329,7 @@ public final class WorkbenchFrame extends JFrame {
     private Path lastDirectory;
 
     private Path chooseFile(String extension) {
-        JFileChooser chooser = new JFileChooser(lastDirectory == null ? null : lastDirectory.toFile());
+        JFileChooser chooser = new JFileChooser(lastDirectory == null ? new File(System.getProperty("user.dir")) : lastDirectory.toFile());
         chooser.setFileFilter(new FileNameExtensionFilter(extension.toUpperCase() + " files", extension));
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             Path file = chooser.getSelectedFile().toPath();
@@ -340,7 +341,7 @@ public final class WorkbenchFrame extends JFrame {
 
     /** Appends the extension if missing and asks before overwriting. */
     private Path chooseSaveFile(String extension) {
-        JFileChooser chooser = new JFileChooser(lastDirectory == null ? null : lastDirectory.toFile());
+        JFileChooser chooser = new JFileChooser(lastDirectory == null ? new File(System.getProperty("user.dir")) : lastDirectory.toFile());
         chooser.setFileFilter(new FileNameExtensionFilter(extension.toUpperCase() + " files", extension));
         chooser.setSelectedFile(new java.io.File("program." + extension));
         if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
