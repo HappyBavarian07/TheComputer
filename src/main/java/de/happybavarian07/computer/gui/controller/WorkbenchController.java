@@ -1,6 +1,7 @@
 package de.happybavarian07.computer.gui.controller;
 
 import de.happybavarian07.computer.assembler.encoder.AssemblerEncoder;
+import de.happybavarian07.computer.assembler.AssemblerService;
 import de.happybavarian07.computer.assembler.encoder.model.EncodedProgram;
 import de.happybavarian07.computer.assembler.encoder.model.EncodedWord;
 import de.happybavarian07.computer.assembler.lexer.impl.IndexedLexer;
@@ -42,6 +43,12 @@ public final class WorkbenchController {
     private final Motherboard motherboard = new Motherboard();
     private final Disassembler disassembler = new Disassembler();
     private final AtomicBoolean runRequested = new AtomicBoolean(false);
+    private static final int MAX_TRACE_ENTRIES = 1000;
+    private static final int RUN_TRACE_STEPS_PER_TICK = 32;
+    /** Pass as steps per tick to fill each timer tick's time slice with as many steps as fit. */
+    public static final int MAX_THROUGHPUT = 0;
+    private static final long TICK_BUDGET_NANOS = 25_000_000L;
+    private final int[] tracePcRing = new int[RUN_TRACE_STEPS_PER_TICK];
     private final Deque<String> traceEntries = new ArrayDeque<>();
     private final List<WorkbenchListener> listeners = new CopyOnWriteArrayList<>();
 
@@ -86,7 +93,7 @@ public final class WorkbenchController {
             motherboard.stepSystem();
             log("Step complete.");
             if (motherboard.getCpu().isHalted()) {
-                log("CPU reached HALT.");
+                log(motherboard.getCpu().isFaulted() ? "CPU fault: " + motherboard.getCpu().getFaultReason() : "CPU reached HALT.");
             }
         } catch (RuntimeException ex) {
             log("Execution error: " + ex.getMessage());
@@ -127,25 +134,31 @@ public final class WorkbenchController {
         runRequested.set(true);
         runStartNanos = System.nanoTime();
         runStepsTotal = 0;
-        runTimer = new Timer(30, e -> {
+        runTimer = new Timer(maxThroughputTimerDelay(stepsPerTick), e -> {
             if (!runRequested.get() || motherboard.getCpu().isHalted()) {
                 runTimer.stop();
                 if (motherboard.getCpu().isHalted()) {
-                    log("Run complete: CPU halted.");
+                    log(motherboard.getCpu().isFaulted() ? "CPU fault: " + motherboard.getCpu().getFaultReason() : "Run complete: CPU halted.");
                 }
                 fireStateChanged();
                 onTick.run();
                 return;
             }
-            int pcBefore = motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
-            long rawBefore = readMemoryWord(pcBefore);
+            boolean maxThroughput = stepsPerTick <= MAX_THROUGHPUT;
+            long deadline = System.nanoTime() + TICK_BUDGET_NANOS;
+            int[] ring = tracePcRing;
             int executed = 0;
             String error = null;
             try {
-                for (int i = 0; i < stepsPerTick; i++) {
+                for (int i = 0; maxThroughput || i < stepsPerTick; i++) {
                     if (motherboard.getCpu().isHalted()) {
                         break;
                     }
+                    // max throughput fills the time slice instead of a fixed step count; check the clock rarely
+                    if (maxThroughput && (i & 0xFF) == 0xFF && System.nanoTime() >= deadline) {
+                        break;
+                    }
+                    ring[i % RUN_TRACE_STEPS_PER_TICK] = motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
                     motherboard.stepSystem();
                     executed++;
                 }
@@ -153,7 +166,16 @@ public final class WorkbenchController {
                 error = ex.getMessage();
             }
             runStepsTotal += executed;
-            recordTrace("run", pcBefore, rawBefore, motherboard.getCpu().getSpecialRegisters().getPC().getAsInt());
+            // decoding every step would slow the run down, so the trace keeps the last few steps of each tick
+            int pcNow = motherboard.getCpu().getSpecialRegisters().getPC().getAsInt();
+            for (int i = Math.max(0, executed - RUN_TRACE_STEPS_PER_TICK); i < executed; i++) {
+                int pc = ring[i % RUN_TRACE_STEPS_PER_TICK];
+                int next = i + 1 < executed ? ring[(i + 1) % RUN_TRACE_STEPS_PER_TICK] : pcNow;
+                recordTrace("run", pc, readMemoryWord(pc), next);
+            }
+            if (error != null) {
+                recordTrace("run", pcNow, readMemoryWord(pcNow), pcNow);
+            }
             fireStateChanged();
             onTick.run();
             if (error != null) {
@@ -163,6 +185,11 @@ public final class WorkbenchController {
         });
         runTimer.setInitialDelay(0);
         runTimer.start();
+    }
+
+    // in max throughput mode the slice itself already takes ~25 ms, so the timer only needs to yield to the event queue
+    private static int maxThroughputTimerDelay(int stepsPerTick) {
+        return stepsPerTick <= MAX_THROUGHPUT ? 5 : 30;
     }
 
     public void stopRun() {
@@ -201,18 +228,13 @@ public final class WorkbenchController {
             return new AssembleResult(false, "No assembly source to assemble.", null, null);
         }
         try {
-            ResolvedProgram resolved = resolve(source);
-            EncodedProgram encoded = new AssemblerEncoder().encodeProgram(resolved);
+            AssemblerService.Result assembled = new AssemblerService().assemble(source, "workbench.asm");
+            ResolvedProgram resolved = assembled.resolved();
+            EncodedProgram encoded = assembled.encoded();
 
             motherboard.reset();
             traceEntries.clear();
-            Word wordBuf = new Word();
-            Address addrBuf = new Address();
-            for (EncodedWord w : encoded.words()) {
-                addrBuf.set(w.byteAddress());
-                wordBuf.set(w.rawWord());
-                motherboard.getSystemBus().writeWord(addrBuf, wordBuf);
-            }
+            loadImage(assembled.image());
             motherboard.getCpu().getSpecialRegisters().getPC().set(0);
             motherboard.getCpu().getSpecialRegisters().getSP().set(Architecture.STACK_BASE_ADDRESS);
 
@@ -239,28 +261,26 @@ public final class WorkbenchController {
             return new BinaryResult(false, "No assembly source to assemble.", null);
         }
         try {
-            List<EncodedWord> words = new AssemblerEncoder().encodeProgram(resolve(source)).words();
-            int size = 0;
-            for (EncodedWord w : words) {
-                size = Math.max(size, w.byteAddress() + Architecture.INSTRUCTION_BYTES);
-            }
-            byte[] image = new byte[size];
-            for (EncodedWord w : words) {
-                for (int i = 0; i < Architecture.INSTRUCTION_BYTES; i++) {
-                    image[w.byteAddress() + i] = (byte) (w.rawWord() >>> (i * 8));
-                }
-            }
+            byte[] image = new AssemblerService().assemble(source, "workbench.asm").image();
             return new BinaryResult(true, "Assembled " + image.length + " bytes.", image);
         } catch (LexerException | ParserException | ResolutionException | EncodingException ex) {
             return new BinaryResult(false, ex.getMessage(), null);
         }
     }
 
-    private ResolvedProgram resolve(String source) {
-        var parser = new DefaultParser(new IndexedLexer());
-        parser.reset(source, "workbench.asm");
-        Program program = parser.parse();
-        return new SymbolResolver().resolve(program);
+    // writes the image into RAM as 8-byte little-endian words from address 0; the last partial word is zero-padded
+    private void loadImage(byte[] image) {
+        Word wordBuf = new Word();
+        Address addrBuf = new Address();
+        for (int offset = 0; offset < image.length; offset += Architecture.INSTRUCTION_BYTES) {
+            long raw = 0;
+            for (int byteIndex = 0; byteIndex < Architecture.INSTRUCTION_BYTES && offset + byteIndex < image.length; byteIndex++) {
+                raw |= ((long) (image[offset + byteIndex] & 0xFF)) << (byteIndex * 8);
+            }
+            addrBuf.set(offset);
+            wordBuf.set(raw);
+            motherboard.getSystemBus().writeWord(addrBuf, wordBuf);
+        }
     }
 
     public void loadBinary(Path file) throws IOException {
@@ -268,14 +288,7 @@ public final class WorkbenchController {
         traceEntries.clear();
         byte[] binary = Files.readAllBytes(file);
 
-        for (int offset = 0; offset < binary.length; offset += Architecture.INSTRUCTION_BYTES) {
-            long raw = 0;
-            for (int byteIndex = 0; byteIndex < Architecture.INSTRUCTION_BYTES && offset + byteIndex < binary.length; byteIndex++) {
-                raw |= ((long) (binary[offset + byteIndex] & 0xFF)) << (byteIndex * 8);
-            }
-            motherboard.getSystemBus().writeWord(new Address(offset), new Word(raw));
-        }
-
+        loadImage(binary);
         motherboard.getCpu().getSpecialRegisters().getPC().set(0);
         motherboard.getCpu().getSpecialRegisters().getSP().set(Architecture.STACK_BASE_ADDRESS);
         log("Loaded binary file: " + file);
@@ -422,7 +435,7 @@ public final class WorkbenchController {
         String decoded = disassembler.disassemble(rawWord);
         String entry = phase + " @" + String.format("0x%04X", pcBefore) + " -> " + decoded + " | next " + String.format("0x%04X", pcAfter);
         traceEntries.addFirst(entry);
-        while (traceEntries.size() > 24) {
+        while (traceEntries.size() > MAX_TRACE_ENTRIES) {
             traceEntries.removeLast();
         }
     }

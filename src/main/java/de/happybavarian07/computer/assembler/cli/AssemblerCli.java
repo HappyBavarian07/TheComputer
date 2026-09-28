@@ -1,27 +1,19 @@
 package de.happybavarian07.computer.assembler.cli;
 
-import de.happybavarian07.computer.assembler.encoder.AssemblerEncoder;
-import de.happybavarian07.computer.assembler.encoder.model.EncodedProgram;
+import de.happybavarian07.computer.assembler.AssemblerService;
 import de.happybavarian07.computer.assembler.encoder.model.EncodedWord;
-import de.happybavarian07.computer.assembler.lexer.Lexer;
 import de.happybavarian07.computer.assembler.lexer.impl.IndexedLexer;
-import de.happybavarian07.computer.assembler.parser.DefaultParser;
-import de.happybavarian07.computer.assembler.parser.Parser;
 import de.happybavarian07.computer.assembler.parser.model.Program;
-import de.happybavarian07.computer.assembler.resolver.SymbolResolver;
 import de.happybavarian07.computer.assembler.resolver.model.ResolvedProgram;
 import de.happybavarian07.computer.exceptions.assembler.EncodingException;
+import de.happybavarian07.computer.exceptions.assembler.LexerException;
+import de.happybavarian07.computer.exceptions.assembler.ParserException;
 import de.happybavarian07.computer.exceptions.assembler.ResolutionException;
-import de.happybavarian07.computer.util.Architecture;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.util.Comparator;
 import java.util.List;
 
 /*
@@ -29,16 +21,14 @@ import java.util.List;
  * @Date August 12, 2026 | 13:07
  */
 public final class AssemblerCli {
-    private Lexer lexer;
-    private Parser parser;
-    private SymbolResolver symbolResolver;
-    private AssemblerEncoder encoder;
+    private final AssemblerService assemblerService;
 
     public AssemblerCli() {
-        lexer = new IndexedLexer();
-        parser = new DefaultParser(lexer);
-        symbolResolver = new SymbolResolver();
-        encoder = new AssemblerEncoder();
+        assemblerService = new AssemblerService();
+    }
+
+    public static void main(String[] args) {
+        System.exit(new AssemblerCli().handleCommandInput(args));
     }
 
     public ParsedCommand parseArgs(String[] args) {
@@ -139,21 +129,18 @@ public final class AssemblerCli {
             System.err.println("error reading input file: " + e + ": " + e.getLocalizedMessage());
             return 2;
         }
-        parser.reset(source, absolute.toString());
         try {
-            Program program = parser.parse();
-            ResolvedProgram resolvedProgram = symbolResolver.resolve(program);
-            EncodedProgram encodedProgram = encoder.encodeProgram(resolvedProgram);
+            AssemblerService.Result result = assemblerService.assemble(source, absolute.toString());
 
             if (cmd.verbose()) {
-                printVerboseOutput(source, program, resolvedProgram);
+                printVerboseOutput(source, result.program(), result.resolved());
             }
             if (cmd.dryRun()) {
-                printEncodedWords(encodedProgram.words());
+                printEncodedWords(result.encoded().words());
                 return 0;
             }
-            return writeBinary(encodedProgram, finalOutputFile);
-        } catch (ResolutionException | EncodingException e) {
+            return writeBinary(result.image(), finalOutputFile);
+        } catch (LexerException | ParserException | ResolutionException | EncodingException e) {
             System.err.println(e.getMessage());
             return 2;
         }
@@ -205,52 +192,15 @@ public final class AssemblerCli {
         }
     }
 
-    private int writeBinary(EncodedProgram encodedProgram, File finalOutputFile) {
-        if (!finalOutputFile.exists()) {
-            File parent = finalOutputFile.getParentFile();
-            if (parent != null) {
-                parent.mkdirs();
-            }
-            try {
-                finalOutputFile.createNewFile();
-            } catch (IOException e) {
-                System.err.println("error creating final output file: " + finalOutputFile.getAbsolutePath());
-                return 2;
-            }
+    private int writeBinary(byte[] image, File finalOutputFile) {
+        File parent = finalOutputFile.getAbsoluteFile().getParentFile();
+        if (parent != null) {
+            parent.mkdirs();
         }
-
-        List<EncodedWord> words = encodedProgram.words();
-        words.sort(Comparator.naturalOrder());
-
-        int maxAddress = 0;
-
-        for (EncodedWord word : words) {
-            maxAddress = Math.max(maxAddress, word.byteAddress() + Architecture.INSTRUCTION_BYTES);
-        }
-
         try {
-            ByteArrayOutputStream byteBuffer = new ByteArrayOutputStream();
-
-            int currentAddress = 0;
-            int wordIndex = 0;
-
-            while (currentAddress < maxAddress) {
-                if (wordIndex < words.size() && words.get(wordIndex).byteAddress() == currentAddress) {
-                    long raw = words.get(wordIndex).rawWord();
-                    byte[] bytes = new byte[Architecture.INSTRUCTION_BYTES];
-                    for(int i = 0; i < Architecture.INSTRUCTION_BYTES; i++) {
-                        bytes[i] = (byte) (i == 0 ? raw & 0xFF : raw >>> (i * 8) & 0xFF);
-                    }
-                    byteBuffer.write(bytes);
-                    wordIndex += 1;
-                } else {
-                    byteBuffer.write(new byte[]{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
-                }
-                currentAddress += Architecture.INSTRUCTION_BYTES;
-            }
-            byteBuffer.writeTo(Files.newOutputStream(finalOutputFile.toPath()));
+            Files.write(finalOutputFile.toPath(), image);
         } catch (IOException e) {
-            System.err.println("error writing bytes to buffer: " + e + ": " + e.getLocalizedMessage());
+            System.err.println("error writing output file " + finalOutputFile.getAbsolutePath() + ": " + e.getLocalizedMessage());
             return 2;
         }
         return 0;

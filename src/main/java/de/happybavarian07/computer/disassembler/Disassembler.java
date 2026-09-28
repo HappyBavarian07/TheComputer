@@ -1,10 +1,10 @@
 package de.happybavarian07.computer.disassembler;
 
-import de.happybavarian07.computer.core.address.Address;
 import de.happybavarian07.computer.core.word.Word;
 import de.happybavarian07.computer.isa.Condition;
 import de.happybavarian07.computer.isa.Instruction;
 import de.happybavarian07.computer.isa.InstructionDecoder;
+import de.happybavarian07.computer.util.Architecture;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,22 +34,26 @@ public class Disassembler {
             int rd = instruction.regDestIndex();
             int rs1 = instruction.regSource1Index();
             int rs2 = instruction.regSource2Index();
-            Address imm32 = new Address(instruction.immediateAddr());
+            String imm32 = instruction.opCode().immediateKind().format(instruction.immediateAddr());
             String operandString = switch (instruction.opCode().operandMapping()) {
                 case NONE -> "";
-                case RD_RS1_RS2 -> "r" + rd + ", r" + rs1 + ", r" + rs2;
-                case RD_RS1_IMM32, RD_RS1_OFFSET32 -> "r" + rd + ", r" + rs1 + ", " + imm32.getAsHexaDecString();
-                case RD_RS1 -> "r" + rd + ", r" + rs1;
-                case RD_IMM32 -> "r" + rd + ", " + imm32.getAsHexaDecString();
-                case IMM32_RD -> imm32.getAsHexaDecString() + ", r" + rd;
-                case IMM32_ONLY -> imm32.getAsHexaDecString();
-                case RS1_ONLY -> "r" + rs1;
-                case RD_ONLY -> "r" + rd;
+                case RD_RS1_RS2 -> reg(rd) + ", " + reg(rs1) + ", " + reg(rs2);
+                case RD_RS1_IMM32, RD_RS1_OFFSET32 -> reg(rd) + ", " + reg(rs1) + ", " + imm32;
+                case RD_RS1 -> reg(rd) + ", " + reg(rs1);
+                case RD_IMM32 -> reg(rd) + ", " + imm32;
+                case IMM32_RD -> imm32 + ", " + reg(rd);
+                case IMM32_ONLY -> imm32;
+                case RS1_ONLY -> reg(rs1);
+                case RD_ONLY -> reg(rd);
             };
             return (mnemonic + " " + operandString).trim();
         } else {
             return ".word " + word.getAsHexaDecString();
         }
+    }
+
+    private static String reg(int index) {
+        return index == Architecture.SP_REGISTER_INDEX ? "sp" : "r" + index;
     }
 
     public String disassemble(long rawWord) {

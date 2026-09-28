@@ -20,14 +20,17 @@ import static org.junit.jupiter.api.Assertions.*;
 public class DirectiveDataEmitterTest {
 
     @Test
-    void unaligned_word_throws() {
+    void unaligned_word_is_emitted_byte_precise() {
         DirectiveDataEmitter emitter = new DirectiveDataEmitter();
         DirectiveStatement stmt = new DirectiveStatement(".word", List.of(new Operand(OperandKind.NUMBER, "1", 1, new SourceSpan("file",1,1,1,2))), new SourceSpan("file",1,1,1,6));
-        ResolvedOperand ro = new ResolvedOperand(stmt.arguments().get(0), OperandKind.NUMBER, "1", 1);
+        ResolvedOperand ro = new ResolvedOperand(stmt.arguments().get(0), OperandKind.NUMBER, "1", 1L);
         ResolvedStatement rs = new ResolvedStatement(stmt, 1, List.of(ro)); // base address 1 (unaligned)
 
         ByteSink sink = new ByteSink(new HashMap<>());
-        assertThrows(EncodingException.class, () -> emitter.emit(rs, sink));
+        emitter.emit(rs, sink);
+        assertEquals(4, sink.addressToValue().size());
+        assertEquals(1, sink.addressToValue().get(1));
+        assertEquals(0, sink.addressToValue().get(4));
     }
 
     @Test
@@ -36,9 +39,9 @@ public class DirectiveDataEmitterTest {
         DirectiveStatement stmt = new DirectiveStatement(".ascii", List.of(), new SourceSpan("file",1,1,1,6));
         // resolved ascii bytes as operands
         Operand dummy = new Operand(OperandKind.NUMBER, "65", 65, new SourceSpan("file",1,1,1,7));
-        ResolvedOperand r1 = new ResolvedOperand(dummy, OperandKind.NUMBER, "65", 65);
-        ResolvedOperand r2 = new ResolvedOperand(dummy, OperandKind.NUMBER, "10", 10);
-        ResolvedOperand r3 = new ResolvedOperand(dummy, OperandKind.NUMBER, "0", 0);
+        ResolvedOperand r1 = new ResolvedOperand(dummy, OperandKind.NUMBER, "65", 65L);
+        ResolvedOperand r2 = new ResolvedOperand(dummy, OperandKind.NUMBER, "10", 10L);
+        ResolvedOperand r3 = new ResolvedOperand(dummy, OperandKind.NUMBER, "0", 0L);
 
         ResolvedStatement rs = new ResolvedStatement(stmt, 0, List.of(r1, r2, r3));
         Map<Integer,Integer> map = new HashMap<>();

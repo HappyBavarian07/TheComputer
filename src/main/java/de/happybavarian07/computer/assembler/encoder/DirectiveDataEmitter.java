@@ -29,16 +29,16 @@ public class DirectiveDataEmitter {
         if (baseAddr < 0 || baseAddr > Architecture.MEMORY_SIZE_BYTES - 1)
             throw new EncodingException(sourceStatement.span(), "base address outside '0.." + (Architecture.MEMORY_SIZE_BYTES - 1) + "'");
 
-        if (baseAddr % 4 != 0)
-            throw new EncodingException(sourceStatement.span(), "base address not aligned to 4");
-
         switch (name.toLowerCase(Locale.ROOT)) {
             case ".word" -> {
                 for (ResolvedOperand operand : operands) {
                     if (operand.resolvedNumericValue() == null)
                         throw new EncodingException(operand.sourceOperand().span(), "operand must have non-null value");
 
-                    int value = operand.resolvedNumericValue();
+                    long wide = operand.resolvedNumericValue();
+                    if (wide < Integer.MIN_VALUE || wide > 0xFFFFFFFFL)
+                        throw new EncodingException(operand.sourceOperand().span(), ".word value '" + operand.text() + "' out of 32-bit range " + Integer.MIN_VALUE + ".." + 0xFFFFFFFFL);
+                    int value = (int) wide;
 
                     for (int i = 0; i < 4; i++) {
                         int currentAddr = baseAddr + i;
@@ -54,7 +54,7 @@ public class DirectiveDataEmitter {
                     if (operand.resolvedNumericValue() == null)
                         throw new EncodingException(operand.sourceOperand().span(), "operand must have non-null value");
 
-                    int value = operand.resolvedNumericValue();
+                    int value = operand.resolvedNumericValue().intValue();
 
                     checkAndAddValueToSink(baseAddr, value & 0xFF, byteSink, operand.sourceOperand().span());
 

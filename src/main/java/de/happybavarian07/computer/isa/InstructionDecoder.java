@@ -18,10 +18,10 @@ public class InstructionDecoder {
         long wordValue = sourceWord.getAsLong();
         OpCode opCode = OpCode.fromBinaryValue((int) (wordValue >>> 56) & 0xFF);
         Condition cond = Condition.fromBinaryValue((int) (wordValue >>> 52) & 0xF);
-        int regDestIndex = Math.toIntExact((wordValue >>> 46) & 0x3F);
-        int regSource1Index = Math.toIntExact((wordValue >>> 40) & 0x3F);
-        int regSource2Index = Math.toIntExact((wordValue >>> 34) & 0x3F);
-        int immediateAddr = Math.toIntExact(wordValue & 0xFFFFFFFFL);
+        int regDestIndex = (int) ((wordValue >>> 46) & 0x3F);
+        int regSource1Index = (int) ((wordValue >>> 40) & 0x3F);
+        int regSource2Index = (int) ((wordValue >>> 34) & 0x3F);
+        int immediateAddr = (int) (wordValue & 0xFFFFFFFFL);
         decodedInstruction.set(opCode, cond, regDestIndex, regSource1Index, regSource2Index, immediateAddr);
     }
 
@@ -37,10 +37,10 @@ public class InstructionDecoder {
         long wordValue = sourceWord.getAsLong();
         OpCode opCode = OpCode.fromBinaryValueNullable((int) (wordValue >>> 56) & 0xFF);
         Condition cond = Condition.fromBinaryValueNullable((int) (wordValue >>> 52) & 0xF);
-        int regDestIndex = Math.toIntExact((wordValue >>> 46) & 0x3F);
-        int regSource1Index = Math.toIntExact((wordValue >>> 40) & 0x3F);
-        int regSource2Index = Math.toIntExact((wordValue >>> 34) & 0x3F);
-        int immediateAddr = Math.toIntExact(wordValue & 0xFFFFFFFFL);
+        int regDestIndex = (int) ((wordValue >>> 46) & 0x3F);
+        int regSource1Index = (int) ((wordValue >>> 40) & 0x3F);
+        int regSource2Index = (int) ((wordValue >>> 34) & 0x3F);
+        int immediateAddr = (int) (wordValue & 0xFFFFFFFFL);
         decodedInstruction.set(opCode, cond, regDestIndex, regSource1Index, regSource2Index, immediateAddr);
     }
 }

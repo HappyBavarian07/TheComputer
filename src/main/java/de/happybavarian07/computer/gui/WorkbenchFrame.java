@@ -31,6 +31,7 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.event.KeyEvent;
+import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -181,12 +182,17 @@ public final class WorkbenchFrame extends JFrame {
         fileMenu.add(menuItem("Exit", e -> dispose()));
         menuBar.add(fileMenu);
 
+        JMenu editMenu = new JMenu("Edit");
+        editMenu.add(menuItem("Undo", KeyStroke.getKeyStroke(KeyEvent.VK_Z, menuMask), e -> editorPanel.undo()));
+        editMenu.add(menuItem("Redo", KeyStroke.getKeyStroke(KeyEvent.VK_Y, menuMask), e -> editorPanel.redo()));
+        menuBar.add(editMenu);
+
         JMenu runMenu = new JMenu("Run");
         runMenu.add(menuItem("Step", KeyStroke.getKeyStroke(KeyEvent.VK_F10, 0), e -> controller.step()));
         runMenu.add(menuItem("Run", KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0), e -> {
             if (!controller.isRunning()) {
                 controlPanel.setClockText("Clock: measuring...");
-                controller.startRun(256, this::updateClockLabel);
+                controller.startRun(controlPanel.stepsPerTick(), this::updateClockLabel);
             }
         }));
         runMenu.add(menuItem("Stop", KeyStroke.getKeyStroke(KeyEvent.VK_F5, java.awt.event.InputEvent.SHIFT_DOWN_MASK), e -> controller.stopRun()));
@@ -328,7 +334,7 @@ public final class WorkbenchFrame extends JFrame {
     private Path lastDirectory;
 
     private Path chooseFile(String extension) {
-        JFileChooser chooser = new JFileChooser(lastDirectory == null ? null : lastDirectory.toFile());
+        JFileChooser chooser = new JFileChooser(lastDirectory == null ? new File(System.getProperty("user.dir")) : lastDirectory.toFile());
         chooser.setFileFilter(new FileNameExtensionFilter(extension.toUpperCase() + " files", extension));
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             Path file = chooser.getSelectedFile().toPath();
@@ -340,7 +346,7 @@ public final class WorkbenchFrame extends JFrame {
 
     /** Appends the extension if missing and asks before overwriting. */
     private Path chooseSaveFile(String extension) {
-        JFileChooser chooser = new JFileChooser(lastDirectory == null ? null : lastDirectory.toFile());
+        JFileChooser chooser = new JFileChooser(lastDirectory == null ? new File(System.getProperty("user.dir")) : lastDirectory.toFile());
         chooser.setFileFilter(new FileNameExtensionFilter(extension.toUpperCase() + " files", extension));
         chooser.setSelectedFile(new java.io.File("program." + extension));
         if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {

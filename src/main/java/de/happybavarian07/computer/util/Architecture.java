@@ -18,6 +18,8 @@ public class Architecture {
 
     // System sizes
     public static final int GPR_COUNT = 32; // General-purpose Registers // Architecture.GENERAL_REGISTER_COUNT
+    // register field value that names the stack pointer; only mov, addi and subi accept it (see OpCode.allowsSpOperand)
+    public static final int SP_REGISTER_INDEX = GPR_COUNT; // Architecture.SP_REGISTER_INDEX
     public static final int MEMORY_SIZE_BYTES = 256 * 1024 * 1024; // 256 MiB // Architecture.MEMORY_SIZE_BYTES
     // Reserved Space for BIOS and MMIO
     public static final int MEMORY_FREE_END = MEMORY_SIZE_BYTES - 0x1000;   // Architecture.MEMORY_FREE_END

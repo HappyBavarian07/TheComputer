@@ -40,6 +40,10 @@ public class SymbolResolver {
                 symbolTable.map(name, locationCounter);
             }
             if (statement instanceof InstructionStatement) {
+                if (locationCounter % Architecture.INSTRUCTION_BYTES != 0) {
+                    throw new ResolutionException(statement.span(), "instruction at address " + locationCounter
+                            + " is not " + Architecture.INSTRUCTION_BYTES + "-byte aligned; use .align " + Architecture.INSTRUCTION_BYTES + " or .org before it");
+                }
                 locationCounter += Architecture.INSTRUCTION_BYTES;
             } else if (statement instanceof DirectiveStatement directiveStatement) {
                 locationCounter = applyDirective(locationCounter, directiveStatement);
@@ -99,12 +103,9 @@ public class SymbolResolver {
                     if (ro.kind() != OperandKind.NUMBER && ro.kind() != OperandKind.LABEL) {
                         throw new ResolutionException(arg.span(), ".word requires numeric or label argument");
                     }
-                    Integer val = ro.resolvedNumericValue();
+                    Long val = ro.resolvedNumericValue();
                     if (val == null) {
                         throw new ResolutionException(arg.span(), ".word could not resolve value");
-                    }
-                    if ((addr % 4) != 0) {
-                        throw new ResolutionException(directiveStatement.span(), "unaligned .word at address " + addr);
                     }
                     out.add(new ResolvedOperand(arg, OperandKind.NUMBER, arg.text(), val));
                     addr += 4;
@@ -118,12 +119,12 @@ public class SymbolResolver {
                     if (ro.kind() != OperandKind.NUMBER && ro.kind() != OperandKind.LABEL) {
                         throw new ResolutionException(arg.span(), ".byte requires numeric or label argument");
                     }
-                    Integer val = ro.resolvedNumericValue();
+                    Long val = ro.resolvedNumericValue();
                     if (val == null) {
                         throw new ResolutionException(arg.span(), ".byte could not resolve value");
                     }
-                    int byteVal = val & 0xFF;
-                    out.add(new ResolvedOperand(arg, OperandKind.NUMBER, Integer.toString(byteVal), byteVal));
+                    long byteVal = val & 0xFF;
+                    out.add(new ResolvedOperand(arg, OperandKind.NUMBER, Long.toString(byteVal), byteVal));
                     addr += 1;
                 }
                 return out;
@@ -139,8 +140,8 @@ public class SymbolResolver {
                 byte[] bytes = decodeStringLiteral(sArg.text());
                 int addr = baseAddress;
                 for (byte b : bytes) {
-                    int ub = b & 0xFF;
-                    out.add(new ResolvedOperand(sArg, OperandKind.NUMBER, Integer.toString(ub), ub));
+                    long ub = b & 0xFF;
+                    out.add(new ResolvedOperand(sArg, OperandKind.NUMBER, Long.toString(ub), ub));
                     addr += 1;
                 }
                 return out;
@@ -182,11 +183,14 @@ public class SymbolResolver {
         switch (sourceOperand.kind()) {
             case REGISTER: {
                 String text = sourceOperand.text();
-                Integer idx;
+                Long idx;
+                if (text.equalsIgnoreCase("sp")) {
+                    return new ResolvedOperand(sourceOperand, sourceOperand.kind(), sourceOperand.text(), (long) Architecture.SP_REGISTER_INDEX);
+                }
                 try {
                     String digits = text.replaceAll("(?i)r", "");
                     if (!digits.isEmpty()) {
-                        idx = Integer.parseInt(digits);
+                        idx = Long.parseLong(digits);
                     } else {
                         idx = null;
                     }
@@ -200,7 +204,7 @@ public class SymbolResolver {
                 if (n == null) {
                     throw new ResolutionException(sourceOperand.span(), "expected numeric literal");
                 }
-                int value = n.intValue();
+                long value = n.longValue();
                 return new ResolvedOperand(sourceOperand, sourceOperand.kind(), sourceOperand.text(), value);
             }
             case LABEL: {
@@ -209,7 +213,7 @@ public class SymbolResolver {
                 if (location == null) {
                     throw new ResolutionException(sourceOperand.span(), "unknown symbol '" + name + "'");
                 }
-                return new ResolvedOperand(sourceOperand, sourceOperand.kind(), sourceOperand.text(), location);
+                return new ResolvedOperand(sourceOperand, sourceOperand.kind(), sourceOperand.text(), location.longValue());
             }
             case STRING: {
                 return new ResolvedOperand(sourceOperand, sourceOperand.kind(), sourceOperand.text(), null);
@@ -238,6 +242,13 @@ public class SymbolResolver {
             byte[] bytes = decodeStringLiteral(arg.text());
             return locationCounter + bytes.length;
         }
+        if (".align".equalsIgnoreCase(name)) {
+            long boundary = parseSingleNumber(directiveStatement, ".align");
+            if (boundary < 1 || boundary > 4096 || (boundary & (boundary - 1)) != 0) {
+                throw new ResolutionException(directiveStatement.span(), ".align expects a power of two between 1 and 4096, got " + boundary);
+            }
+            return (int) ((locationCounter + boundary - 1) / boundary * boundary);
+        }
         if (".org".equalsIgnoreCase(name)) {
             int address = parseOrgAddress(directiveStatement);
             if (address < 0 || address >= Architecture.MEMORY_SIZE_BYTES) {
@@ -249,6 +260,17 @@ public class SymbolResolver {
         }
 
         return locationCounter;
+    }
+
+    private long parseSingleNumber(DirectiveStatement directiveStatement, String directiveName) {
+        if (directiveStatement.arguments().size() != 1) {
+            throw new ResolutionException(directiveStatement.span(), directiveName + " expects exactly one argument");
+        }
+        var argument = directiveStatement.arguments().getFirst();
+        if (!(argument.numericValue() instanceof Number number)) {
+            throw new ResolutionException(argument.span(), directiveName + " requires a numeric argument");
+        }
+        return number.longValue();
     }
 
     private int parseOrgAddress(DirectiveStatement directiveStatement) {

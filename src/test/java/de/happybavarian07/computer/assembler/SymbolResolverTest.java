@@ -80,7 +80,7 @@ public class SymbolResolverTest {
         assertInstanceOf(InstructionStatement.class, rs.sourceStatement());
         List<ResolvedOperand> ops = rs.operands();
         assertEquals(1, ops.size());
-        assertEquals(8, ops.getFirst().resolvedNumericValue());
+        assertEquals(8L, ops.getFirst().resolvedNumericValue());
     }
 
     @Test
@@ -106,16 +106,16 @@ public class SymbolResolverTest {
                 .findFirst().orElseThrow();
         List<ResolvedOperand> wordOps = wordStmt.operands();
         assertEquals(2, wordOps.size());
-        assertEquals(1, wordOps.get(0).resolvedNumericValue());
-        assertEquals(2, wordOps.get(1).resolvedNumericValue());
+        assertEquals(1L, wordOps.get(0).resolvedNumericValue());
+        assertEquals(2L, wordOps.get(1).resolvedNumericValue());
 
         ResolvedStatement byteStmt = rp.statements().stream()
                 .filter(s -> s.sourceStatement() instanceof DirectiveStatement ds && ds.name().equalsIgnoreCase(".byte"))
                 .findFirst().orElseThrow();
         List<ResolvedOperand> byteOps = byteStmt.operands();
         assertEquals(2, byteOps.size());
-        assertEquals(3, byteOps.get(0).resolvedNumericValue());
-        assertEquals(255, byteOps.get(1).resolvedNumericValue());
+        assertEquals(3L, byteOps.get(0).resolvedNumericValue());
+        assertEquals(255L, byteOps.get(1).resolvedNumericValue());
     }
 
     @Test
@@ -133,17 +133,19 @@ public class SymbolResolverTest {
                 .findFirst().orElseThrow();
         List<ResolvedOperand> ops = asciiStmt.operands();
         assertEquals(2, ops.size(), diagnostics);
-        assertEquals(65, ops.get(0).resolvedNumericValue(), diagnostics);
-        assertEquals(10, ops.get(1).resolvedNumericValue(), diagnostics);
+        assertEquals(65L, ops.get(0).resolvedNumericValue(), diagnostics);
+        assertEquals(10L, ops.get(1).resolvedNumericValue(), diagnostics);
     }
 
     @Test
-    void pass2UnalignedWordThrows() {
+    void unalignedWordIsAcceptedButUnalignedInstructionThrows() {
         parser.reset(".org 1\n.word 1", "file.asm");
         Program program = parser.parse();
+        resolver.resolve(program);
 
-        SymbolResolver.Pass1Result p1 = resolver.pass1(program);
-        assertThrows(ResolutionException.class, () -> resolver.resolve(program));
+        parser.reset(".org 4\nhalt", "file.asm");
+        Program misaligned = parser.parse();
+        assertThrows(ResolutionException.class, () -> resolver.resolve(misaligned));
     }
 
     @Test
@@ -153,6 +155,7 @@ public class SymbolResolverTest {
                         start:     nop
                         .org 16
                         data: .word start
+                        .align 8
                         jmp data
                         """;
         parser.reset(src, "file.asm");
@@ -169,7 +172,7 @@ public class SymbolResolverTest {
         ResolvedStatement jmpStmt = p2.resolvedStatements().stream()
                 .filter(s -> s.sourceStatement() instanceof InstructionStatement ins && ins.opcode().equalsIgnoreCase("JMP"))
                 .findFirst().orElseThrow();
-        assertEquals(p1.symbolTable().getLocation("data"), jmpStmt.operands().getFirst().resolvedNumericValue(), diagnostics);
+        assertEquals((long) p1.symbolTable().getLocation("data"), jmpStmt.operands().getFirst().resolvedNumericValue(), diagnostics);
     }
 
     private String diagnostics(String source, Program program, SymbolResolver.Pass1Result pass1, SymbolResolver.Pass2Result pass2) {
@@ -273,7 +276,7 @@ public class SymbolResolverTest {
         }
         List<String> rendered = new ArrayList<>();
         for (ResolvedOperand operand : operands) {
-            Integer value = operand.resolvedNumericValue();
+            Long value = operand.resolvedNumericValue();
             String text = escapeForDisplay(operand.text());
             if (value != null) {
                 rendered.add(operand.kind() + "(" + text + "->" + value + ")");

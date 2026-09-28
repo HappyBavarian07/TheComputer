@@ -8,7 +8,9 @@ import de.happybavarian07.computer.cpu.alu.AluOp;
 import de.happybavarian07.computer.cpu.profiler.ExecutionProfiler;
 import de.happybavarian07.computer.cpu.registers.RegisterFile;
 import de.happybavarian07.computer.cpu.registers.SpecialRegisters;
+import de.happybavarian07.computer.exceptions.core.arithmetic.ZeroDivisionException;
 import de.happybavarian07.computer.exceptions.stack.StackOverflowException;
+import de.happybavarian07.computer.exceptions.stack.StackUnderflowException;
 import de.happybavarian07.computer.isa.Instruction;
 import de.happybavarian07.computer.isa.InstructionDecoder;
 import de.happybavarian07.computer.isa.OpCode;
@@ -42,6 +44,7 @@ public class Cpu {
     private final ExecutionProfiler profiler;
 
     private boolean isHalted;
+    private String faultReason;
 
     public Cpu(SystemBus systemBus) {
         registerFile = new RegisterFile();
@@ -82,7 +85,7 @@ public class Cpu {
                 fetchOperands();
                 executeCurrent();
                 if (executionResult.writesRd) {
-                    registerFile.write(currentInstruction.regDestIndex(), workingResult);
+                    writeRegister(currentInstruction.regDestIndex(), workingResult);
                 }
             }
             if (executionResult.pcUpdate) {
@@ -113,7 +116,7 @@ public class Cpu {
 
                 // write (final ifs) (write back)
                 if (executionResult.writesRd) {
-                    registerFile.write(currentInstruction.regDestIndex(), workingResult);
+                    writeRegister(currentInstruction.regDestIndex(), workingResult);
                 }
             }, currentInstruction.opCode().binaryValue().intValue());
         }
@@ -152,8 +155,12 @@ public class Cpu {
                     case DIV -> aluOp = AluOp.DIV;
                     case MOD -> aluOp = AluOp.MOD;
                 }
-                alu.execute(regSrc1Value, regSrc2Value, aluOp, workingResult, specialRegisters.getFlagZBit(), specialRegisters.getFlagNBit(), specialRegisters.getFlagCBit(), specialRegisters.getFlagVBit());
-                executionResult.writesRd = true;
+                try {
+                    alu.execute(regSrc1Value, regSrc2Value, aluOp, workingResult, specialRegisters.getFlagZBit(), specialRegisters.getFlagNBit(), specialRegisters.getFlagCBit(), specialRegisters.getFlagVBit());
+                    executionResult.writesRd = true;
+                } catch (ZeroDivisionException e) {
+                    fault(aluOp == AluOp.MOD ? "modulo by zero" : "division by zero");
+                }
             }
             case CMP -> {
                 alu.execute(regDestValue, regSrc1Value, AluOp.SUB, workingResult, specialRegisters.getFlagZBit(), specialRegisters.getFlagNBit(), specialRegisters.getFlagCBit(), specialRegisters.getFlagVBit());
@@ -277,19 +284,19 @@ public class Cpu {
             case NONE -> {
             } // nothing
             case RD_RS1_RS2 -> {
-                registerFile.read(currentInstruction.regSource1Index(), regSrc1Value);
+                readRegister(currentInstruction.regSource1Index(), regSrc1Value);
                 registerFile.read(currentInstruction.regSource2Index(), regSrc2Value);
             } // read r1, r2
             case RD_RS1_IMM32 -> {
-                registerFile.read(currentInstruction.regSource1Index(), regSrc1Value);
-                regSrc2Value.set(currentInstruction.immediateAddr());
-            } // read r1, set src2 to imm32
+                readRegister(currentInstruction.regSource1Index(), regSrc1Value);
+                regSrc2Value.set(currentInstruction.opCode().immediateKind().extend(currentInstruction.immediateAddr()));
+            } // read r1, set src2 to imm32 extended per its ImmediateKind
             case RD_RS1, RS1_ONLY -> {
-                registerFile.read(currentInstruction.regSource1Index(), regSrc1Value);
+                readRegister(currentInstruction.regSource1Index(), regSrc1Value);
             } // read r1
             case RD_IMM32 -> {
                 workingAddress.set(currentInstruction.immediateAddr());
-                regSrc2Value.set(currentInstruction.immediateAddr());
+                regSrc2Value.set(currentInstruction.opCode().immediateKind().extend(currentInstruction.immediateAddr()));
                 registerFile.read(currentInstruction.regDestIndex(), regDestValue);
             } // set workingAddress & src2 to imm32, read rd
             case IMM32_RD -> {
@@ -297,7 +304,7 @@ public class Cpu {
                 registerFile.read(currentInstruction.regDestIndex(), regSrc1Value);
             } // set workingAddress to imm32, read rd into src1
             case RD_RS1_OFFSET32 -> {
-                registerFile.read(currentInstruction.regSource1Index(), regSrc1Value);
+                readRegister(currentInstruction.regSource1Index(), regSrc1Value);
                 registerFile.read(currentInstruction.regDestIndex(), regDestValue);
 
                 int effectiveAddress = regSrc1Value.getAsInt() + currentInstruction.immediateAddr();
@@ -308,6 +315,22 @@ public class Cpu {
             } // set workingAddress to imm32
             case RD_ONLY -> {
             } // nothing to read
+        }
+    }
+
+    private void readRegister(int index, Word destination) {
+        if (index == Architecture.SP_REGISTER_INDEX && currentInstruction.opCode().allowsSpOperand()) {
+            destination.set(specialRegisters.getSP().getAsLong());
+        } else {
+            registerFile.read(index, destination);
+        }
+    }
+
+    private void writeRegister(int index, Word source) {
+        if (index == Architecture.SP_REGISTER_INDEX && currentInstruction.opCode().allowsSpOperand()) {
+            specialRegisters.getSP().set(source.getAsLong() & 0xFFFFFFFFL);
+        } else {
+            registerFile.write(index, source);
         }
     }
 
@@ -329,6 +352,7 @@ public class Cpu {
         workingResult.set(0);
 
         isHalted = false;
+        faultReason = null;
     }
 
     private void push(Word value) {
@@ -344,9 +368,9 @@ public class Cpu {
 
     private void pop(Word destination) {
         int currentSp = specialRegisters.getSP().getAsInt();
-        if (currentSp > Architecture.STACK_BASE_ADDRESS) {
+        if (currentSp >= Architecture.STACK_BASE_ADDRESS) {
             isHalted = true;
-            throw new StackOverflowException("Tried to pop from empty stack.");
+            throw new StackUnderflowException("Tried to pop from empty stack.");
         }
         workingAddress.set(specialRegisters.getSP());
         systemBus.readWord(workingAddress, destination);
@@ -371,6 +395,22 @@ public class Cpu {
 
     public InstructionDecoder getInstructionDecoder() {
         return instructionDecoder;
+    }
+
+    // a fault stops the CPU on the faulting instruction (pc is not advanced) and records why
+    private void fault(String reason) {
+        isHalted = true;
+        executionResult.pcUpdate = false;
+        executionResult.writesRd = false;
+        faultReason = reason + " at pc=0x" + Long.toHexString(specialRegisters.getPC().getAsLong());
+    }
+
+    public boolean isFaulted() {
+        return faultReason != null;
+    }
+
+    public String getFaultReason() {
+        return faultReason;
     }
 
     public boolean isHalted() {

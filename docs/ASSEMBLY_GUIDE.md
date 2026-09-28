@@ -117,25 +117,25 @@ was blocked on `DIS-001`, now unblocked).
 ## 3. How to actually assemble, load, step, and run a program today
 
 This section is deliberately literal about what exists, because the project
-does not yet ship a packaged command-line tool.
+ships no packaged jar (see below).
 
 ### 3.1 What exists
 
-- **`AssemblerCli`** ([source](../src/main/java/de/happybavarian07/computer/assembler/cli/AssemblerCli.java))
-  is a public, reusable class that assembles a `.asm` file to a flat binary
-  image. It has a `parseArgs`/`handleCommandInput` API (flags: `-o/--output`,
-  `-d/--dry-run`, `-v/--verbose`, `-O/--overwrite`, `-h/--help`) but **no
-  `public static void main`** and no Maven `exec`/`shade`/`assembly` plugin is
-  configured in `pom.xml`. There is currently no `java -jar ... program.asm`
-  workflow you can run out of the box.
+- **`AssemblerService`** is the one assembler pipeline (lexer, parser,
+  resolver, encoder) and returns the flat byte image of memory from address 0.
+  **`AssemblerCli`** ([source](../src/main/java/de/happybavarian07/computer/assembler/cli/AssemblerCli.java))
+  is the command line front end for it, with a real `public static void main`
+  (flags: `-o/--output`, `-d/--dry-run`, `-v/--verbose`, `-O/--overwrite`,
+  `-h/--help`). No packaged jar is configured in `pom.xml`, so run it with
+  `java -cp target/classes de.happybavarian07.computer.assembler.cli.AssemblerCli program.asm`.
 - **The GUI Workbench**
   ([`gui/WorkbenchFrame.java`](../src/main/java/de/happybavarian07/computer/gui/WorkbenchFrame.java),
   launched via `ComputerWorkbenchLauncher`) is the one ready-to-use tool.
   Every action goes through
   [`WorkbenchController`](../src/main/java/de/happybavarian07/computer/gui/controller/WorkbenchController.java),
   which owns a full `Motherboard` instance and runs the same
-  lexer/parser/resolver/encoder classes described above in-process (it does
-  not shell out to `AssemblerCli`):
+  pipeline described above in-process through `AssemblerService` (it does not
+  shell out to `AssemblerCli`):
   - **Load example** — loads one of the bundled `.asm` files from
     `src/main/resources/programs/` into the editor.
   - **Load asm** / **Load bin** — open a source file into the editor, or a
@@ -143,12 +143,8 @@ does not yet ship a packaged command-line tool.
   - **Save asm** / **Save bin** (`Ctrl+S` / `Ctrl+Shift+S`) — write the
     editor text as `.asm`, or assemble it and write the flat binary image
     without touching the running machine. `Save bin` refuses to write a
-    file if the source doesn't assemble. For every bundled example the
-    output is byte-identical to `AssemblerCli`'s; for programs whose
-    directives put data at a 4-byte-but-not-8-byte-aligned address it is
-    *more correct*: `AssemblerCli`'s writer steps in 8-byte strides and
-    silently zero-fills the unaligned word and everything after it (see
-    `ASM-003`).
+    file if the source doesn't assemble. The output is byte-identical to
+    `AssemblerCli`'s because both use `AssemblerService`.
   - **Assemble & Load** — assembles the editor text and loads the result
     into the emulated 256 MiB RAM.
   - **Step** / **Step N** — calls `Motherboard.stepSystem()` (→
@@ -167,38 +163,37 @@ does not yet ship a packaged command-line tool.
 ### 3.2 Assembling and running a program without the GUI
 
 If you want a headless run (e.g. from a test, or your own throwaway `main`),
-the pattern that actually works — this is the exact shape used to validate
-every example in this document — is:
+use the shared facade `AssemblerService` (the same one the GUI and the
+command line tool use). It returns the flat byte image of memory from address
+0: instructions are 8 little-endian bytes, data directives are byte-precise,
+gaps are zero.
 
 ```java
-var lexer = new IndexedLexer();
-Parser parser = new DefaultParser(lexer);
-parser.reset(sourceText, "program.asm");
-Program program = parser.parse();
-
-ResolvedProgram resolved = new SymbolResolver().resolve(program);
-EncodedProgram encoded = new AssemblerEncoder().encodeProgram(resolved);
+byte[] image = new AssemblerService().assemble(sourceText, "program.asm").image();
 
 Motherboard motherboard = new Motherboard();   // owns a full 256 MiB RAM + Cpu
 motherboard.powerOn();
 
 Word wordBuf = new Word();
 Address addrBuf = new Address();
-for (EncodedWord w : encoded.words()) {
-    addrBuf.set(w.byteAddress());
-    wordBuf.set(w.rawWord());
+for (int offset = 0; offset < image.length; offset += 8) {
+    long raw = 0;
+    for (int i = 0; i < 8 && offset + i < image.length; i++) {
+        raw |= ((long) (image[offset + i] & 0xFF)) << (i * 8);
+    }
+    addrBuf.set(offset);
+    wordBuf.set(raw);
     motherboard.getSystemBus().writeWord(addrBuf, wordBuf);
 }
 
 motherboard.stepSystem();   // one instruction
 // ...or:
-motherboard.runSystem();    // run to HALT
+motherboard.runSystem();    // run to HALT (or to a fault, see Cpu.getFaultReason())
 ```
 
-`AssemblerCli.handleCommandInput(new String[]{ "program.asm", "-o", "out.bin" })`
-does the same lexer→parser→resolver→encoder chain and additionally writes a
-flat little-endian binary image (8 bytes per word, zero-filled gaps) to disk,
-if you want a `.bin` artifact rather than loading directly into a live `Cpu`.
+From a shell, `AssemblerCli` now has a real `main`:
+`java -cp target/classes de.happybavarian07.computer.assembler.cli.AssemblerCli program.asm -o out.bin`
+writes exactly the same image bytes the GUI's "Save bin" writes.
 
 **Heap note:** earlier revisions eagerly allocated the whole address space
 as individual bit-level objects, so `new Motherboard()` could throw
@@ -282,11 +277,14 @@ time. Duplicate label names in one file are a resolution error.
 
 - `r0` – `r31` (case-insensitive: `R0`, `r0` both work) — the 32
   general-purpose registers, each 64 bits wide.
-- `pc`, `sp`, `ir`, `flags` are lexically recognized as "register-like"
-  tokens by the lexer, but **cannot actually be used as instruction
-  operands** — see the note in
-  [§9](#9-verified-discrepancies-code-vs-spec-vs-examples). They're only
-  touched implicitly (by `JMP`/`CALL`/`RET`/`PUSH`/`POP`/etc.).
+- `sp` is the stack pointer and can be used as an operand of `mov`, `addi`
+  and `subi` only (`mov r30, sp`, `mov sp, r30`, `subi sp, sp, 32`).
+  Anywhere else it is an assembler error.
+- `pc`, `ir` and `flags` are lexically recognized as register-like tokens but
+  are **not operands**; using one gives a clear diagnostic (`'pc' cannot be
+  used as an operand`). They are only touched implicitly (by
+  `JMP`/`CALL`/`RET`/`PUSH`/`POP`/etc.).
+- `r0` is an ordinary register, not hardwired to zero.
 - There is no `r32` or higher: `Architecture.GPR_COUNT - 1 = 31` is enforced
   by the encoder (`register out of '0..31'`).
 
@@ -299,12 +297,19 @@ movi r1, 0b101010   ; binary
 movi r1, 1_000_000  ; underscores allowed as digit separators
 ```
 
-Decimal, `0x`/`0X` hex, and `0b`/`0B` binary literals are supported.
-**There is no negative-literal syntax.** The lexer has no unary-minus
-handling at all — `addi r1, r1, -1` fails at the *lexer* stage with
-`unexpected character: '-'`, before any range check runs. To subtract a
-constant, use `SUB`/`SUBI` with a positive operand, or compute a negative
-value at runtime.
+Decimal, `0x`/`0X` hex, and `0b`/`0B` binary literals are supported, and a
+literal may start with a minus sign directly in front of the digits
+(`-5`, `-0x10`). Immediate ranges depend on the opcode:
+
+| Kind | Opcodes | Range |
+| :--- | :--- | :--- |
+| signed 32-bit (sign-extended) | `movi`, `addi`, `subi`, `cmpi`, `loadr`/`storer` offset | `-2147483648 .. 2147483647` |
+| unsigned 32-bit (zero-extended) | `andi`, `ori`, `xori` | `0 .. 4294967295` |
+| shift amount | `shli`, `shri` | `0 .. 63` |
+| address | `jmp`, `call`, absolute `load*`/`store*` | `0 .. 4294967295` |
+
+Out-of-range values are assembler errors, e.g. `movi r1, 0xFFFFFFFF` (does
+not fit signed 32-bit; build large constants with `movi`, `shli`, `ori`).
 
 ### 5.4 Condition suffixes (how conditional jumps are actually spelled)
 
@@ -371,19 +376,23 @@ result register) — the first operand is the *minuend*, matching the
 
 ### 5.7 Directives
 
-Four directives are implemented in
+Five directives are implemented in
 [`SymbolResolver`](../src/main/java/de/happybavarian07/computer/assembler/resolver/SymbolResolver.java)
 and [`DirectiveDataEmitter`](../src/main/java/de/happybavarian07/computer/assembler/encoder/DirectiveDataEmitter.java).
-**None of the bundled example programs use any directive**, so this is the
-least battle-tested corner of the assembler; the example below was written
-and validated specifically for this document.
 
 | Directive | Effect |
 | :--- | :--- |
-| `.org <addr>` | Sets the location counter to `<addr>` for subsequent statements. Must match what pass 1 already computed (in practice: only meaningful as the very first statement, or after an unconditional jump past a data block). |
-| `.word <n1>, <n2>, ...` | Emits each value as a 4-byte little-endian word. |
-| `.byte <n1>, <n2>, ...` | Emits each value as a single byte (must be `0..255`). |
+| `.org <addr>` | Sets the location counter to `<addr>` for subsequent statements. |
+| `.word <n1>, <n2>, ...` | Emits each value as a 4-byte little-endian word (`-2147483648 .. 4294967295`). No alignment requirement. |
+| `.byte <n1>, <n2>, ...` | Emits each value as a single byte. No alignment requirement. |
 | `.ascii "text"` | Emits the byte-encoded string (with `\n`, `\t`, `\\`, `\"`, `\'`, `\0` escapes), one byte per character, no implicit terminator. |
+| `.align <n>` | Pads with zeros up to the next multiple of `<n>` (a power of two, 1..4096). |
+
+Data directives are byte-precise. **Instructions must start at an address
+divisible by 8**; otherwise resolution fails with `instruction at address N
+is not 8-byte aligned; use .align 8 or .org before it`. After odd-sized data,
+put `.align 8` before the next instruction. Two statements that write the same
+byte are an error (`overlapping output at address N`).
 
 **Validated, alignment-safe example:**
 
@@ -391,22 +400,13 @@ and validated specifically for this document.
 .org 0x100
 data_block:
 .word 100
-.byte 1, 2, 3, 4
-.ascii "hi!!"
+.byte 1, 2, 3
+.ascii "hi"
+.align 8
 halt
 ```
 
-**Gotcha confirmed by direct testing:** `SymbolResolver` only alignment-checks
-`.word` (must start 4-byte aligned), but `DirectiveDataEmitter` — reached
-later, at encoding time — requires **every** `.word`/`.byte`/`.ascii`
-directive's *own* address to be a multiple of 4, regardless of which
-directive it is. A `.byte`/`.ascii` directive that doesn't start 4-aligned
-will pass symbol resolution and then fail at encoding with `base address not
-aligned to 4`. The example above works because every directive happens to
-land on a 4-byte boundary (`.word` consumes exactly 4 bytes, `.byte 1,2,3,4`
-consumes exactly 4, so `.ascii` also starts aligned); this is not enforced or
-explained anywhere in the assembler, so pad each directive's byte count to a
-multiple of 4 to stay safe.
+---
 
 ## 6. Complete instruction reference
 
@@ -425,31 +425,24 @@ Every example instruction below assembles successfully today.
 | `MOVI` | `0x02` | `rd, imm` | `rd = imm` (no memory access) | `movi r1, 50` |
 | `HALT` | **`0x03`** | *(none)* | `isHalted = true`; `PC` does **not** advance further. | `halt` |
 
-> **`HALT`'s opcode is `0x03` in code, not `0x05`.** `ISA_SPECIFICATION.md`
-> §4 documents `HALT | 0x05`. This was verified directly:
-> `OpCode.HALT.binaryValue()` returns `3`, and `CpuTest.testSingleStepMovAndHalt`
-> exercises `OpCode.HALT` and halts correctly. Code is the ground truth here;
-> the spec's table has a stale value. See [§9](#9-verified-discrepancies-code-vs-spec-vs-examples).
-
 ### 6.2 Arithmetic (all set `Z`, `N`; see per-row notes for `C`/`V`)
 
 | Instr | Opcode | Operands | Effect | Flags | Example |
 | :--- | :---: | :--- | :--- | :--- | :--- |
 | `ADD` | `0x10` | `rd, rs1, rs2` | `rd = rs1 + rs2` | `Z N C V` | `add r3, r1, r2` |
-| `ADDI` | `0x11` | `rd, rs1, imm` | `rd = rs1 + imm` | `Z N C V` | `addi r1, r1, 100` |
+| `ADDI` | `0x11` | `rd, rs1, imm` | `rd = rs1 + imm` (signed imm) | `Z N C V` | `addi r1, r1, -1` |
 | `SUB` | `0x12` | `rd, rs1, rs2` | `rd = rs1 - rs2` | `Z N C V` | `sub r4, r1, r2` |
 | `SUBI` | `0x13` | `rd, rs1, imm` | `rd = rs1 - imm` | `Z N C V` | `subi r4, r1, 8` |
-| `MUL` | `0x14` | `rd, rs1, rs2` | `rd = rs1 * rs2` | `Z N V` | `mul r5, r1, r2` |
-| `DIV` | `0x15` | `rd, rs1, rs2` | `rd = rs1 / rs2` (integer) | `Z N` (**not** `C`/`V` — see below) | `div r6, r1, r2` |
-| `MOD` | `0x16` | `rd, rs1, rs2` | `rd = rs1 % rs2` | `Z N` (**not** `C`/`V` — see below) | `mod r7, r1, r2` |
+| `MUL` | `0x14` | `rd, rs1, rs2` | `rd = rs1 * rs2` (two's complement) | `Z N V` (`V` = signed overflow) | `mul r5, r1, r2` |
+| `DIV` | `0x15` | `rd, rs1, rs2` | `rd = rs1 / rs2` (signed, truncates toward zero) | `Z N`, clears `C`/`V` (`V` set for `MIN / -1`) | `div r6, r1, r2` |
+| `MOD` | `0x16` | `rd, rs1, rs2` | `rd = rs1 % rs2` (signed, sign of the dividend) | `Z N`, clears `C`/`V` | `mod r7, r1, r2` |
 | `CMP` | `0x17` | `rd, rs1` | flags on `rd - rs1` (no write) | `Z N C V` | `cmp r1, r2` |
 | `CMPI` | `0x18` | `rd, imm` | flags on `rd - imm` (no write) | `Z N C V` | `cmpi r4, 0` |
 
-> **Gotcha, verified by reading `Alu.java`:** `DIV` and `MOD` never touch
-> `C`/`V` — `Alu.div`/`Alu.mod` only update `Z`/`N`. Unlike the bitwise group
-> below (which explicitly *clears* `C`/`V`), `DIV`/`MOD` leave `C`/`V` at
-> whatever a prior instruction last set them to. Don't branch on `C`/`V`
-> right after a `DIV`/`MOD` expecting them to reflect that division.
+> **Signed division and faults.** `-7 / 2 = -3`, `-7 % 2 = -1`,
+> `7 / -2 = -3`, `7 % -2 = 1`. Dividing by zero does not throw out of
+> `Cpu.step()`: the CPU halts on the faulting instruction (PC is not
+> advanced) and `Cpu.getFaultReason()` says why (the GUI logs it).
 
 ### 6.3 Bitwise & shifts
 
@@ -514,22 +507,9 @@ i.e. both stack-overflow and stack-underflow conditions.
 | `STOREI` | `0x56` | `imm, rd` | 32-bit | `RAM[imm] = rd[31:0]` | `storei 0x100, r1` |
 | `STOREW` | `0x57` | `imm, rd` | 64-bit | `RAM[imm] = rd[63:0]` | `storew 0x100, r1` |
 | `LOADR` | `0x58` | `rd, rs1, offset` | 64-bit | `rd = RAM[rs1 + offset]` | `loadr r1, r2, 0` |
-| `STORER` | `0x59` | `rd, rs1, offset` | 64-bit | **`RAM[rs1 + offset] = rd`** — see note below | `storer r1, r2, 0` |
+| `STORER` | `0x59` | `rd, rs1, offset` | 64-bit | `RAM[rs1 + offset] = rd` — see note below | `storer r1, r2, 0` |
 
-> **`STORER`'s actual operand roles differ from `ISA_SPECIFICATION.md`'s
-> formula, confirmed by direct execution.** The spec's §4 table writes
-> `RAM[Rd + imm32] = Rs1`. But `InstructionWordEncoder` assigns the first
-> parsed operand to `rd` and the second to `rs1` — the same left-to-right
-> convention as `LOADR` (`rd, rs1, offset` = "dest/value, base, offset") —
-> and `Cpu.step()`'s execute case for `STORER` computes the address from
-> `rs1` (second operand) and writes the value from `rd` (first operand). A
-> direct test (`r1 = 0xAA`, `r2 = 0x40`, `storer r1, r2, 0`) wrote `0xAA` to
-> `RAM[0x40]`, i.e. `RAM[operand2 + offset] = operand1` — the reverse of the
-> spec's stated formula. Both the code and this behavior are unambiguous;
-> the spec's formula text appears to have transposed `Rd`/`Rs1`. This is
-> flagged here rather than silently corrected in `ISA_SPECIFICATION.md`,
-> per this document's goal of recording — not resolving — discrepancies
-> between spec and implementation.
+> `STORER` writes `RAM[rs1 + offset] = rd` (first operand is the value, second the base register, same role order as `LOADR`); `ISA_SPECIFICATION.md` now says the same.
 
 There is no dedicated `STORE` (bare, no width suffix) — see
 [§8](#8-discrepancies-found-in-the-bundled-examples).
@@ -709,9 +689,11 @@ once instructions doubled to 8 bytes each.
 Everything in this section was independently confirmed by reading the
 relevant source *and* exercising it — not inferred from one side alone.
 
-1. **`HALT`'s opcode value.** `OpCode.java`: `0x03`. `ISA_SPECIFICATION.md`
-   §4: `0x05`. Code is ground truth (verified via
-   `OpCode.HALT.binaryValue()` and `CpuTest`).
+Items fixed by `ASM-003` are marked *fixed*; the reproductions are kept
+short for history.
+
+1. **`HALT`'s opcode value** — *fixed (spec).* `OpCode.HALT` is `0x03`;
+   `ISA_SPECIFICATION.md` now says `0x03` too.
 
 2. **`CALL` jumped to the wrong address — fixed 2026-09-28, commit
    `90bf884`.** Root cause: `Cpu.push(Word value)` reused the CPU's shared
@@ -758,76 +740,42 @@ relevant source *and* exercising it — not inferred from one side alone.
    verify the ABI design itself, only that the instructions it's built on
    no longer crash.
 
-4. **The 32-bit `IMM32` field is not actually 32-bit-wide in practice.**
-   `InstructionWordEncoder.imm(ResolvedOperand)`
-   ([source](../src/main/java/de/happybavarian07/computer/assembler/encoder/InstructionWordEncoder.java))
-   clamps every resolved immediate/address operand to
-   `0 .. Architecture.MEMORY_SIZE_BYTES - 1` — i.e. `0..268,435,455`, about
-   28 bits, not `0..0xFFFFFFFF`. Confirmed: `movi r1, 268435455` assembles;
-   `movi r1, 268435456` and `movi r1, 4294967295` both fail with
-   `'imm16' out of '0..268435455'`. The bit *field* really is 32 bits wide
-   (`InstructionWordEncoder`'s packing masks it with `0xFFFFFFFFL`), but the
-   *assembler* only ever lets you put a value in it that fits in the
-   current fixed 256 MiB memory size — the accepted range is tied to
-   `MEMORY_SIZE_BYTES`, not to the field width. Combined with
-   [§5.3](#53-numbers)'s point that negative literals don't parse at all,
-   this means the field is effectively a **positive 28-bit** range today,
-   not a signed or unsigned 32-bit one.
+4. **The 32-bit `IMM32` field was effectively a positive 28-bit range, and the
+   decoder threw on a set top bit** — *fixed.* `InstructionDecoder` now keeps
+   the 32 bits as they are, and every opcode has an `ImmediateKind`
+   (signed 32, unsigned 32, shift amount, address) shared by the assembler
+   range check, the CPU and the disassembler; see
+   [§5.3](#53-numbers) for the ranges. `movi r1, 0xFFFFFFFF` is now an error.
 
-   *(Minor, related: the error message itself says `'imm16'`, a leftover
-   label from an earlier, pre-64-bit version of the ISA — the message text
-   was not updated when the field became `imm32`. Harmless but can mislead
-   someone searching for a real 16-bit field that doesn't exist.)*
+5. **`STORER`'s documented formula was reversed from its actual behavior** —
+   *fixed (spec).* `ISA_SPECIFICATION.md` now says
+   `RAM[Rs1 + imm32] = Rd`, matching the code.
 
-   **The decoder rejects negative immediates too (found later, verified by
-   hand-encoding `addi r1, r1, 0xFFFFFFFF`).** `InstructionDecoder.decode`
-   and `decodeNullable` compute `Math.toIntExact(wordValue & 0xFFFFFFFFL)`,
-   which throws `ArithmeticException: integer overflow` for any `imm32`
-   with the top bit set. So even bypassing the assembler, a 32-bit
-   two's-complement negative immediate cannot execute — and because the
-   disassembler and the GUI's disassembly panel go through the same decode,
-   `Disassembler.disassemble(0x0000000080000000L)` throws as well, despite
-   `DIS-001`'s "never crash on arbitrary bytes" requirement. Registers and
-   the ALU are fine with negatives (`0 - 4` gives `-4`, `N`/`LT`/`MI` behave);
-   the gap is entirely in immediates. Tracked in `ASM-003`.
+6. **`pc`/`sp`/`ir`/`flags` as operands raised `NullPointerException`** —
+   *fixed.* `sp` is now an operand of `mov`/`addi`/`subi`; the others give a
+   clean diagnostic.
 
-5. **`STORER`'s documented formula is reversed from its actual behavior.**
-   See the note under [§6.6](#66-memory).
+7. **Directive alignment was checked inconsistently and `AssemblerCli`
+   dropped unaligned data** — *fixed.* Data is byte-precise, instructions
+   must be 8-byte aligned, `.align` was added, and `AssemblerCli` and the
+   GUI share one pipeline (`AssemblerService`).
 
-6. **Using `pc`/`sp`/`ir`/`flags` as an instruction operand crashes the
-   assembler with an unhandled `NullPointerException`**, rather than a clean
-   diagnostic. The lexer accepts them as `REGISTER`-kind tokens (
-   `IndexedLexer.isRegisterLexeme`), and the parser happily places them
-   wherever a register operand is expected (e.g. `mov r1, pc` parses), but
-   `SymbolResolver.resolveOperand` can't turn `"PC"` into a GPR index (it
-   only strips a leading `r`/`R`) and produces a `null` resolved value,
-   which later NPEs in `InstructionWordEncoder.reg()`. Confirmed directly:
-   `mov r1, pc` throws `NullPointerException` at encoding time. In practice,
-   `PC`/`SP`/`IR`/`FLAGS` are only ever touched implicitly today (by
-   `JMP`/`CALL`/`RET`/`PUSH`/`POP`/conditional execution), never as a
-   readable/writable operand.
+8. **`DIV`/`MOD` were unsigned, `MUL`'s `V` was unsigned overflow, and a zero
+   divisor threw out of `Cpu.step()`** — *fixed.* See
+   [§6.2](#62-arithmetic-all-set-z-n-see-per-row-notes-for-cv).
 
-7. **Directive alignment is checked inconsistently, and more strictly than
-   documented anywhere.** See the gotcha under
-   [§5.7](#57-directives).
+9. **Popping from an empty stack raised `StackOverflowException`** —
+   *fixed.* It raises `StackUnderflowException`, and the empty check itself
+   was off by one (it allowed one pop at the reset SP).
 
 ## 10. Current limitations, plainly stated
 
-- **No standalone assembler CLI** — see [§3.1](#31-what-exists).
 - **No standalone debugger** (`DBG-001`, `TODO`) — the disassembler it was
   blocked on now exists (`DIS-001`, `DONE`).
 - **No memory-mapped I/O** (`IO-001`, `TODO`) and **no MMU / guard pages**
   (`MEM-002`, `TODO`) — the "reserved" top 4 KiB is just unmapped memory.
-- **No negative immediate literals** and **immediates are effectively
-  limited to `0..268,435,455`**, not the nominal signed/unsigned 32-bit range
-  the bit layout would allow — see point 4 above.
 - **No caching**, **no multicore** — `CACHE-001` and `MC-001` are both
   `TODO`.
-- This document's own examples don't demonstrate `.org`/`.word`/`.byte`/
-  `.ascii` beyond the one hand-written validation snippet in
-  [§5.7](#57-directives) — none of the bundled `.asm` programs exercise
-  directives at all.
-
 ## Validation methodology
 
 Every claim in this document that could be checked mechanically, was.

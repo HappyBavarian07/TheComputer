@@ -10,7 +10,7 @@ import java.awt.BorderLayout;
 import java.awt.Font;
 import java.util.List;
 
-/** Rolling log of the last N executed instructions (address, decoded form, next PC). */
+/** Rolling log of the most recent executed instructions, newest first (address, decoded form, next PC). */
 public final class TracePanel extends JPanel {
     private final JTextArea traceArea = new JTextArea(7, 40);
 
@@ -34,5 +34,6 @@ public final class TracePanel extends JPanel {
             builder.append(entry).append('\n');
         }
         traceArea.setText(builder.toString());
+        traceArea.setCaretPosition(0); // newest entry first, keep the newest in view
     }
 }
