@@ -4,6 +4,9 @@ import json
 import re
 import datetime
 import subprocess
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import taskstore
 from PyQt6.QtCore import Qt, QMimeData, QUrl, QFileSystemWatcher, QPointF, QRectF
 from PyQt6.QtGui import QDrag, QAction, QColor, QFont, QPainterPath, QPen, QBrush, QPainter
 from PyQt6.QtWidgets import (
@@ -634,19 +637,11 @@ class KanbanBoardWidget(QWidget):
         layout.addWidget(splitter)
 
     def load_tasks(self):
-        if not os.path.exists(self.json_path):
-            return
         try:
-            with open(self.json_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                if isinstance(data, list):
-                    self.tasks = data
-                elif isinstance(data, dict):
-                    self.tasks = data.get("tasks", [])
-            # Ensure phase_lists mapping exists
+            self.tasks = taskstore.load_tasks()
             self.phase_lists = {}
             self.apply_filters()
-        except (json.JSONDecodeError, OSError, ValueError):
+        except (OSError, ValueError):
             pass
 
     def apply_filters(self):
@@ -707,14 +702,8 @@ class KanbanBoardWidget(QWidget):
     
 
     def save_tasks(self):
-        data = {
-            "project": "TheComputer",
-            "version": "1.0.0",
-            "tasks": self.tasks
-        }
-        with open(self.json_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2)
-        self.main_window.statusBar().showMessage("Saved tasks to docs/tasks.json", 3000)
+        taskstore.save_tasks(self.tasks)
+        self.main_window.statusBar().showMessage("Saved tasks to docs/tasks/", 3000)
 
     def move_task(self, task_data, new_status):
         for t in self.tasks:
@@ -1696,12 +1685,16 @@ class MainWindow(QMainWindow):
 
     def setup_watcher(self):
         self.watcher = QFileSystemWatcher(self)
-        tasks_json = os.path.join(self.root_dir, "docs", "tasks.json")
+        tasks_root = taskstore.tasks_dir()
         diag_dir = os.path.join(self.root_dir, "docs", "diagrams")
-        
+
         watch_paths = []
-        if os.path.exists(tasks_json):
-            watch_paths.append(tasks_json)
+        if os.path.isdir(tasks_root):
+            watch_paths.append(tasks_root)
+            for d in os.listdir(tasks_root):
+                sub = os.path.join(tasks_root, d)
+                if os.path.isdir(sub):
+                    watch_paths.append(sub)
         if os.path.exists(diag_dir):
             watch_paths.append(diag_dir)
 
