@@ -44,6 +44,7 @@ class DisassemblerTest {
                 "shli r1, r2, 63", "shri r1, r2, 1",
                 "jmp 0xFFFFFFFF", "call 0x100", "loadw r1, 0x200", "storew 0x200, r1",
                 "loadr r1, r2, -8", "storer r1, r2, 16",
+                "mov r1, sp", "mov sp, r1", "addi sp, sp, -16", "subi r3, sp, 8",
         };
         for (String line : lines) {
             long word = assembleSingle(line);

@@ -75,6 +75,11 @@ public enum OpCode {
         this.immediateKind = immediateKind;
     }
 
+    // the stack pointer can be named as an operand register (index Architecture.SP_REGISTER_INDEX) only by these opcodes
+    public boolean allowsSpOperand() {
+        return this == MOV || this == ADDI || this == SUBI;
+    }
+
     public ImmediateKind immediateKind() {
         return immediateKind;
     }

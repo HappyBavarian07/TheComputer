@@ -432,4 +432,30 @@ class CpuTest {
         cpu.run();
         assertTrue(cpu.getSpecialRegisters().getFlagZBit().getAsBool());
     }
+
+    @Test
+    void testMovReadsStackPointer() {
+        writeInstruction(0x0000, OpCode.MOV, 1, Architecture.SP_REGISTER_INDEX, 0);
+        writeInstruction(0x0008, OpCode.HALT, 0, 0, 0);
+        cpu.run();
+        cpu.getRegisterFile().read(1, wordBuffer);
+        assertEquals((long) Architecture.STACK_BASE_ADDRESS, wordBuffer.getAsLong());
+    }
+
+    @Test
+    void testAddiOnStackPointerAllocatesFrame() {
+        writeInstruction(0x0000, OpCode.ADDI, Architecture.SP_REGISTER_INDEX, Architecture.SP_REGISTER_INDEX, -16);
+        writeInstruction(0x0008, OpCode.HALT, 0, 0, 0);
+        cpu.run();
+        assertEquals(Architecture.STACK_BASE_ADDRESS - 16, cpu.getSpecialRegisters().getSP().getAsInt());
+    }
+
+    @Test
+    void testMovWritesStackPointer() {
+        writeInstruction(0x0000, OpCode.MOVI, 1, 0, Architecture.STACK_BASE_ADDRESS - 64);
+        writeInstruction(0x0008, OpCode.MOV, Architecture.SP_REGISTER_INDEX, 1, 0);
+        writeInstruction(0x0010, OpCode.HALT, 0, 0, 0);
+        cpu.run();
+        assertEquals(Architecture.STACK_BASE_ADDRESS - 64, cpu.getSpecialRegisters().getSP().getAsInt());
+    }
 }

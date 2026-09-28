@@ -183,6 +183,9 @@ public class SymbolResolver {
             case REGISTER: {
                 String text = sourceOperand.text();
                 Long idx;
+                if (text.equalsIgnoreCase("sp")) {
+                    return new ResolvedOperand(sourceOperand, sourceOperand.kind(), sourceOperand.text(), (long) Architecture.SP_REGISTER_INDEX);
+                }
                 try {
                     String digits = text.replaceAll("(?i)r", "");
                     if (!digits.isEmpty()) {

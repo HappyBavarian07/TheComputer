@@ -82,7 +82,7 @@ public class Cpu {
                 fetchOperands();
                 executeCurrent();
                 if (executionResult.writesRd) {
-                    registerFile.write(currentInstruction.regDestIndex(), workingResult);
+                    writeRegister(currentInstruction.regDestIndex(), workingResult);
                 }
             }
             if (executionResult.pcUpdate) {
@@ -113,7 +113,7 @@ public class Cpu {
 
                 // write (final ifs) (write back)
                 if (executionResult.writesRd) {
-                    registerFile.write(currentInstruction.regDestIndex(), workingResult);
+                    writeRegister(currentInstruction.regDestIndex(), workingResult);
                 }
             }, currentInstruction.opCode().binaryValue().intValue());
         }
@@ -277,15 +277,15 @@ public class Cpu {
             case NONE -> {
             } // nothing
             case RD_RS1_RS2 -> {
-                registerFile.read(currentInstruction.regSource1Index(), regSrc1Value);
+                readRegister(currentInstruction.regSource1Index(), regSrc1Value);
                 registerFile.read(currentInstruction.regSource2Index(), regSrc2Value);
             } // read r1, r2
             case RD_RS1_IMM32 -> {
-                registerFile.read(currentInstruction.regSource1Index(), regSrc1Value);
+                readRegister(currentInstruction.regSource1Index(), regSrc1Value);
                 regSrc2Value.set(currentInstruction.opCode().immediateKind().extend(currentInstruction.immediateAddr()));
             } // read r1, set src2 to imm32 extended per its ImmediateKind
             case RD_RS1, RS1_ONLY -> {
-                registerFile.read(currentInstruction.regSource1Index(), regSrc1Value);
+                readRegister(currentInstruction.regSource1Index(), regSrc1Value);
             } // read r1
             case RD_IMM32 -> {
                 workingAddress.set(currentInstruction.immediateAddr());
@@ -297,7 +297,7 @@ public class Cpu {
                 registerFile.read(currentInstruction.regDestIndex(), regSrc1Value);
             } // set workingAddress to imm32, read rd into src1
             case RD_RS1_OFFSET32 -> {
-                registerFile.read(currentInstruction.regSource1Index(), regSrc1Value);
+                readRegister(currentInstruction.regSource1Index(), regSrc1Value);
                 registerFile.read(currentInstruction.regDestIndex(), regDestValue);
 
                 int effectiveAddress = regSrc1Value.getAsInt() + currentInstruction.immediateAddr();
@@ -308,6 +308,22 @@ public class Cpu {
             } // set workingAddress to imm32
             case RD_ONLY -> {
             } // nothing to read
+        }
+    }
+
+    private void readRegister(int index, Word destination) {
+        if (index == Architecture.SP_REGISTER_INDEX && currentInstruction.opCode().allowsSpOperand()) {
+            destination.set(specialRegisters.getSP().getAsLong());
+        } else {
+            registerFile.read(index, destination);
+        }
+    }
+
+    private void writeRegister(int index, Word source) {
+        if (index == Architecture.SP_REGISTER_INDEX && currentInstruction.opCode().allowsSpOperand()) {
+            specialRegisters.getSP().set(source.getAsLong() & 0xFFFFFFFFL);
+        } else {
+            registerFile.write(index, source);
         }
     }
 

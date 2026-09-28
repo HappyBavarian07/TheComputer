@@ -39,35 +39,35 @@ public class InstructionWordEncoder {
             case NONE -> {
             }
             case RD_RS1_RS2 -> {
-                rd = reg(operands.get(0));
-                rs1 = reg(operands.get(1));
-                rs2 = reg(operands.get(2));
+                rd = reg(operands.get(0), opCode);
+                rs1 = reg(operands.get(1), opCode);
+                rs2 = reg(operands.get(2), opCode);
             }
             case RD_RS1_IMM32, RD_RS1_OFFSET32 -> {
-                rd = reg(operands.get(0));
-                rs1 = reg(operands.get(1));
+                rd = reg(operands.get(0), opCode);
+                rs1 = reg(operands.get(1), opCode);
                 imm32 = imm(operands.get(2), opCode);
             }
             case RD_RS1 -> {
-                rd = reg(operands.get(0));
-                rs1 = reg(operands.get(1));
+                rd = reg(operands.get(0), opCode);
+                rs1 = reg(operands.get(1), opCode);
             }
             case RD_IMM32 -> {
-                rd = reg(operands.get(0));
+                rd = reg(operands.get(0), opCode);
                 imm32 = imm(operands.get(1), opCode);
             }
             case IMM32_RD -> {
                 imm32 = imm(operands.get(0), opCode);
-                rd = reg(operands.get(1));
+                rd = reg(operands.get(1), opCode);
             }
             case IMM32_ONLY -> {
                 imm32 = imm(operands.getFirst(), opCode);
             }
             case RS1_ONLY -> {
-                rs1 = reg(operands.getFirst());
+                rs1 = reg(operands.getFirst(), opCode);
             }
             case RD_ONLY -> {
-                rd = reg(operands.getFirst());
+                rd = reg(operands.getFirst(), opCode);
             }
             default -> {
                 throw new EncodingException(sourceStatement.span(), "unknown operand mapping '" + operandMapping + "'");
@@ -92,12 +92,22 @@ public class InstructionWordEncoder {
         return new EncodedWord(resolvedStatement.address(), rawWord);
     }
 
-    public int reg(ResolvedOperand operand) {
-        Long resolvedNumericValue = operand.resolvedNumericValue();
-        if (resolvedNumericValue == null || resolvedNumericValue < 0 || resolvedNumericValue > Architecture.GPR_COUNT - 1)
+    public int reg(ResolvedOperand operand, OpCode opCode) {
+        Long value = operand.resolvedNumericValue();
+        String text = operand.text();
+        if (value == null)
+            throw new EncodingException(operand.sourceOperand().span(), "'" + text + "' cannot be used as an operand; use r0..r" + (Architecture.GPR_COUNT - 1) + (opCode.allowsSpOperand() ? " or sp" : ""));
+
+        if (value == Architecture.SP_REGISTER_INDEX) {
+            if (!opCode.allowsSpOperand())
+                throw new EncodingException(operand.sourceOperand().span(), "'sp' is only allowed in mov, addi and subi, not in " + opCode.name().toLowerCase());
+            return Architecture.SP_REGISTER_INDEX;
+        }
+
+        if (value < 0 || value > Architecture.GPR_COUNT - 1)
             throw new EncodingException(operand.sourceOperand().span(), "register out of '0.." + (Architecture.GPR_COUNT - 1) + "'");
 
-        return resolvedNumericValue.intValue();
+        return value.intValue();
     }
 
     // the range depends on the opcode: see ImmediateKind
