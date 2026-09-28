@@ -8,7 +8,9 @@ import de.happybavarian07.computer.cpu.alu.AluOp;
 import de.happybavarian07.computer.cpu.profiler.ExecutionProfiler;
 import de.happybavarian07.computer.cpu.registers.RegisterFile;
 import de.happybavarian07.computer.cpu.registers.SpecialRegisters;
+import de.happybavarian07.computer.exceptions.core.arithmetic.ZeroDivisionException;
 import de.happybavarian07.computer.exceptions.stack.StackOverflowException;
+import de.happybavarian07.computer.exceptions.stack.StackUnderflowException;
 import de.happybavarian07.computer.isa.Instruction;
 import de.happybavarian07.computer.isa.InstructionDecoder;
 import de.happybavarian07.computer.isa.OpCode;
@@ -42,6 +44,7 @@ public class Cpu {
     private final ExecutionProfiler profiler;
 
     private boolean isHalted;
+    private String faultReason;
 
     public Cpu(SystemBus systemBus) {
         registerFile = new RegisterFile();
@@ -152,8 +155,12 @@ public class Cpu {
                     case DIV -> aluOp = AluOp.DIV;
                     case MOD -> aluOp = AluOp.MOD;
                 }
-                alu.execute(regSrc1Value, regSrc2Value, aluOp, workingResult, specialRegisters.getFlagZBit(), specialRegisters.getFlagNBit(), specialRegisters.getFlagCBit(), specialRegisters.getFlagVBit());
-                executionResult.writesRd = true;
+                try {
+                    alu.execute(regSrc1Value, regSrc2Value, aluOp, workingResult, specialRegisters.getFlagZBit(), specialRegisters.getFlagNBit(), specialRegisters.getFlagCBit(), specialRegisters.getFlagVBit());
+                    executionResult.writesRd = true;
+                } catch (ZeroDivisionException e) {
+                    fault(aluOp == AluOp.MOD ? "modulo by zero" : "division by zero");
+                }
             }
             case CMP -> {
                 alu.execute(regDestValue, regSrc1Value, AluOp.SUB, workingResult, specialRegisters.getFlagZBit(), specialRegisters.getFlagNBit(), specialRegisters.getFlagCBit(), specialRegisters.getFlagVBit());
@@ -345,6 +352,7 @@ public class Cpu {
         workingResult.set(0);
 
         isHalted = false;
+        faultReason = null;
     }
 
     private void push(Word value) {
@@ -360,9 +368,9 @@ public class Cpu {
 
     private void pop(Word destination) {
         int currentSp = specialRegisters.getSP().getAsInt();
-        if (currentSp > Architecture.STACK_BASE_ADDRESS) {
+        if (currentSp >= Architecture.STACK_BASE_ADDRESS) {
             isHalted = true;
-            throw new StackOverflowException("Tried to pop from empty stack.");
+            throw new StackUnderflowException("Tried to pop from empty stack.");
         }
         workingAddress.set(specialRegisters.getSP());
         systemBus.readWord(workingAddress, destination);
@@ -387,6 +395,22 @@ public class Cpu {
 
     public InstructionDecoder getInstructionDecoder() {
         return instructionDecoder;
+    }
+
+    // a fault stops the CPU on the faulting instruction (pc is not advanced) and records why
+    private void fault(String reason) {
+        isHalted = true;
+        executionResult.pcUpdate = false;
+        executionResult.writesRd = false;
+        faultReason = reason + " at pc=0x" + Long.toHexString(specialRegisters.getPC().getAsLong());
+    }
+
+    public boolean isFaulted() {
+        return faultReason != null;
+    }
+
+    public String getFaultReason() {
+        return faultReason;
     }
 
     public boolean isHalted() {

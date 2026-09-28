@@ -4,6 +4,7 @@ import de.happybavarian07.computer.core.address.Address;
 import de.happybavarian07.computer.core.word.Word;
 import de.happybavarian07.computer.cpu.profiler.ExecutionProfiler;
 import de.happybavarian07.computer.exceptions.stack.StackOverflowException;
+import de.happybavarian07.computer.exceptions.stack.StackUnderflowException;
 import de.happybavarian07.computer.isa.Condition;
 import de.happybavarian07.computer.isa.OpCode;
 import de.happybavarian07.computer.util.Architecture;
@@ -243,6 +244,14 @@ class CpuTest {
     }
 
     @Test
+    void testPopFromEmptyStackIsUnderflow() {
+        writeInstruction(0x0000, OpCode.POP, 1, 0, 0);
+
+        assertThrows(StackUnderflowException.class, () -> cpu.step());
+        assertTrue(cpu.isHalted());
+    }
+
+    @Test
     void testReset() {
         writeInstruction(0x0000, OpCode.HALT, 0, 0, 0);
 
@@ -457,5 +466,35 @@ class CpuTest {
         writeInstruction(0x0010, OpCode.HALT, 0, 0, 0);
         cpu.run();
         assertEquals(Architecture.STACK_BASE_ADDRESS - 64, cpu.getSpecialRegisters().getSP().getAsInt());
+    }
+
+    @Test
+    void testDivisionByZeroHaltsCpuWithReasonAndDoesNotThrow() {
+        writeInstruction(0x0000, OpCode.MOVI, 1, 0, 7);
+        writeInstruction(0x0008, OpCode.MOVI, 2, 0, 0);
+        writeInstruction(0x0010, OpCode.DIV, 3, 1, 2, 0);
+        writeInstruction(0x0018, OpCode.HALT, 0, 0, 0);
+
+        assertDoesNotThrow(() -> cpu.run());
+
+        assertTrue(cpu.isHalted());
+        assertTrue(cpu.isFaulted());
+        assertTrue(cpu.getFaultReason().startsWith("division by zero at pc=0x10"), cpu.getFaultReason());
+        assertEquals(0x10, cpu.getSpecialRegisters().getPC().getAsInt());
+    }
+
+    @Test
+    void testSignedDivisionThroughCpu() {
+        writeInstruction(0x0000, OpCode.MOVI, 1, 0, -7);
+        writeInstruction(0x0008, OpCode.MOVI, 2, 0, 2);
+        writeInstruction(0x0010, OpCode.DIV, 3, 1, 2, 0);
+        writeInstruction(0x0018, OpCode.MOD, 4, 1, 2, 0);
+        writeInstruction(0x0020, OpCode.HALT, 0, 0, 0);
+        cpu.run();
+        cpu.getRegisterFile().read(3, wordBuffer);
+        assertEquals(-3L, wordBuffer.getAsLong());
+        cpu.getRegisterFile().read(4, wordBuffer);
+        assertEquals(-1L, wordBuffer.getAsLong());
+        assertFalse(cpu.isFaulted());
     }
 }

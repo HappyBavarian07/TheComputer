@@ -59,21 +59,24 @@ public class Alu {
     }
 
     public void mul(Word inA, Word inB, Word outResult, Bit flagZ, Bit flagN, Bit flagC, Bit flagV) {
-        wordMultiplier.execute(inA, inB, outResult, flagV);
+        wordMultiplier.executeSigned(inA, inB, outResult, flagV);
         updateZeroFlag(outResult, flagZ);
         updateNegativeFlag(outResult, flagN);
     }
 
     public void div(Word inA, Word inB, Word outResult, Bit flagZ, Bit flagN, Bit flagC, Bit flagV) {
-        wordIntegerDivider.execute(inA, inB, outResult, scratchRemainder);
+        wordIntegerDivider.executeSigned(inA, inB, outResult, scratchRemainder, flagV);
         updateZeroFlag(outResult, flagZ);
         updateNegativeFlag(outResult, flagN);
+        flagC.set(false);
     }
 
     public void mod(Word inA, Word inB, Word outResult, Bit flagZ, Bit flagN, Bit flagC, Bit flagV) {
-        wordIntegerDivider.execute(inA, inB, scratchQuotient, outResult);
+        wordIntegerDivider.executeSigned(inA, inB, scratchQuotient, outResult, flagV);
+        flagV.set(false); // MIN % -1 is 0 and fits, so MOD never overflows
         updateZeroFlag(outResult, flagZ);
         updateNegativeFlag(outResult, flagN);
+        flagC.set(false);
     }
 
     public void and(Word inA, Word inB, Word outResult, Bit flagZ, Bit flagN, Bit flagC, Bit flagV) {

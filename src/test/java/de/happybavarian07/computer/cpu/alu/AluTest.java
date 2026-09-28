@@ -2,6 +2,7 @@ package de.happybavarian07.computer.cpu.alu;
 
 import de.happybavarian07.computer.core.bit.Bit;
 import de.happybavarian07.computer.core.word.Word;
+import de.happybavarian07.computer.exceptions.core.arithmetic.ZeroDivisionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -161,11 +162,11 @@ class AluTest {
                     case MUL -> expected = inA.getAsLong() * inB.getAsLong();
                     case DIV -> {
                         if (inB.getAsLong() == 0) continue;
-                        expected = Long.divideUnsigned(inA.getAsLong(), inB.getAsLong());
+                        expected = inA.getAsLong() / inB.getAsLong(); // signed, truncates toward zero
                     }
                     case MOD -> {
                         if (inB.getAsLong() == 0) continue;
-                        expected = Long.remainderUnsigned(inA.getAsLong(), inB.getAsLong());
+                        expected = inA.getAsLong() % inB.getAsLong(); // signed, sign of the dividend
                     }
                     case AND -> expected = inA.getAsLong() & inB.getAsLong();
                     case OR -> expected = inA.getAsLong() | inB.getAsLong();
@@ -205,5 +206,92 @@ class AluTest {
 
         System.out.printf("[BENCHMARK] 64-Bit ALU Adder Throughput: %,.0f ops/sec (%.2f MOps/sec)%n", opsPerSec, megaOps);
         assertTrue(opsPerSec > 0);
+    }
+
+    private static final long MIN = Long.MIN_VALUE;
+
+    private long divide(long a, long b, boolean[] flagsOut) {
+        Alu alu = new Alu();
+        Word out = new Word();
+        Bit z = new Bit(false), n = new Bit(false), c = new Bit(true), v = new Bit(true);
+        alu.div(new Word(a), new Word(b), out, z, n, c, v);
+        flagsOut[0] = c.getAsBool();
+        flagsOut[1] = v.getAsBool();
+        return out.getAsLong();
+    }
+
+    private long modulo(long a, long b, boolean[] flagsOut) {
+        Alu alu = new Alu();
+        Word out = new Word();
+        Bit z = new Bit(false), n = new Bit(false), c = new Bit(true), v = new Bit(true);
+        alu.mod(new Word(a), new Word(b), out, z, n, c, v);
+        flagsOut[0] = c.getAsBool();
+        flagsOut[1] = v.getAsBool();
+        return out.getAsLong();
+    }
+
+    @Test
+    void testSignedDivisionTruncatesTowardZero() {
+        boolean[] f = new boolean[2];
+        assertEquals(-3L, divide(-7, 2, f));
+        assertEquals(-3L, divide(7, -2, f));
+        assertEquals(3L, divide(-7, -2, f));
+        assertEquals(3L, divide(7, 2, f));
+        assertEquals(0L, divide(0, 5, f));
+    }
+
+    @Test
+    void testSignedModuloTakesSignOfDividend() {
+        boolean[] f = new boolean[2];
+        assertEquals(-1L, modulo(-7, 2, f));
+        assertEquals(1L, modulo(7, -2, f));
+        assertEquals(-1L, modulo(-7, -2, f));
+        assertEquals(1L, modulo(7, 2, f));
+    }
+
+    @Test
+    void testDivAndModClearCarryAndOverflow() {
+        boolean[] f = new boolean[2];
+        divide(7, 2, f);
+        assertFalse(f[0]);
+        assertFalse(f[1]);
+        modulo(7, 2, f);
+        assertFalse(f[0]);
+        assertFalse(f[1]);
+    }
+
+    @Test
+    void testMinDividedByMinusOneWrapsAndSetsOverflow() {
+        boolean[] f = new boolean[2];
+        assertEquals(MIN, divide(MIN, -1, f));
+        assertTrue(f[1]);
+        assertEquals(0L, modulo(MIN, -1, f));
+        assertFalse(f[1]);
+    }
+
+    @Test
+    void testDivisionByZeroThrows() {
+        boolean[] f = new boolean[2];
+        assertThrows(ZeroDivisionException.class, () -> divide(1, 0, f));
+        assertThrows(ZeroDivisionException.class, () -> modulo(1, 0, f));
+    }
+
+    @Test
+    void testMulOverflowFlagIsSignedOverflow() {
+        Alu alu = new Alu();
+        Word out = new Word();
+        Bit z = new Bit(false), n = new Bit(false), c = new Bit(false), v = new Bit(false);
+        alu.mul(new Word(-7L), new Word(2L), out, z, n, c, v);
+        assertEquals(-14L, out.getAsLong());
+        assertFalse(v.getAsBool());
+        alu.mul(new Word(-3L), new Word(-3L), out, z, n, c, v);
+        assertEquals(9L, out.getAsLong());
+        assertFalse(v.getAsBool());
+        alu.mul(new Word(Long.MAX_VALUE), new Word(2L), out, z, n, c, v);
+        assertTrue(v.getAsBool());
+        alu.mul(new Word(MIN), new Word(-1L), out, z, n, c, v);
+        assertTrue(v.getAsBool());
+        alu.mul(new Word(MIN), new Word(1L), out, z, n, c, v);
+        assertFalse(v.getAsBool());
     }
 }

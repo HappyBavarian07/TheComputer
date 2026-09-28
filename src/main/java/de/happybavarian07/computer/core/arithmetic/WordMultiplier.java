@@ -15,11 +15,13 @@ public class WordMultiplier {
     private final Word high;
     private final Word low;
     private final WordAdderSubtractor adder;
+    private final Word signedHigh;
 
     public WordMultiplier() {
         this.high = new Word();
         this.low = new Word();
         this.adder = new WordAdderSubtractor();
+        this.signedHigh = new Word();
         this.adderCarry = new Bit(false);
         this.adderOverflow = new Bit(false);
     }
@@ -44,6 +46,30 @@ public class WordMultiplier {
 
         outProduct.set(low);
         overflowFlag.set(!isZero(high)); // product exceeds 64 bits when any high bit is set aka overflow
+    }
+
+    // Two's complement multiply. The low 64 bits equal the unsigned product's low half, so the result word is the same;
+    // only the overflow flag differs: it is set when the signed 128-bit product does not fit in 64 bits.
+    // signed high = unsigned high - (a < 0 ? b : 0) - (b < 0 ? a : 0); it must be the sign extension of the low half.
+    public void executeSigned(Word inA, Word inB, Word outProduct, Bit overflowFlag) {
+        execute(inA, inB, outProduct, overflowFlag);
+        signedHigh.set(high);
+        if (inA.get(0).getAsBool()) {
+            adder.execute(signedHigh, inB, true, signedHigh, adderCarry, adderOverflow);
+        }
+        if (inB.get(0).getAsBool()) {
+            adder.execute(signedHigh, inA, true, signedHigh, adderCarry, adderOverflow);
+        }
+
+        boolean lowSign = outProduct.get(0).getAsBool();
+        boolean overflow = false;
+        for (int i = 0; i < Architecture.WORD_BITS; i++) {
+            if (signedHigh.get(i).getAsBool() != lowSign) {
+                overflow = true;
+                break;
+            }
+        }
+        overflowFlag.set(overflow);
     }
 
     // logical right shift by one; incomingMsb enters at bit index 0 (MSB)
