@@ -51,7 +51,8 @@ import java.util.List;
  */
 public final class WorkbenchFrame extends JFrame {
     private static final List<String> DEFAULT_EXAMPLES = List.of(
-            "math-demo", "loop-demo", "stack-demo", "sum-loop-demo", "ram-multiplication-demo", "core-benchmark-demo"
+            "math-demo", "loop-demo", "stack-demo", "sum-loop-demo", "ram-multiplication-demo", "core-benchmark-demo",
+            "recursive_multiply", "recursive_exponent"
     );
 
     private final WorkbenchController controller = new WorkbenchController();
