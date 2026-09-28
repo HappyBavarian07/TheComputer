@@ -129,20 +129,35 @@ does not yet ship a packaged command-line tool.
   configured in `pom.xml`. There is currently no `java -jar ... program.asm`
   workflow you can run out of the box.
 - **The GUI Workbench**
-  ([`gui/ComputerWorkbench.java`](../src/main/java/de/happybavarian07/computer/gui/ComputerWorkbench.java),
+  ([`gui/WorkbenchFrame.java`](../src/main/java/de/happybavarian07/computer/gui/WorkbenchFrame.java),
   launched via `ComputerWorkbenchLauncher`) is the one ready-to-use tool.
-  It owns a full `Motherboard` instance and exposes buttons that call the
-  same classes described above:
+  Every action goes through
+  [`WorkbenchController`](../src/main/java/de/happybavarian07/computer/gui/controller/WorkbenchController.java),
+  which owns a full `Motherboard` instance and runs the same
+  lexer/parser/resolver/encoder classes described above in-process (it does
+  not shell out to `AssemblerCli`):
   - **Load example** — loads one of the bundled `.asm` files from
-    `src/main/resources/programs/`.
-  - **Assemble** / **Assemble & Load** — runs your source text through
-    `AssemblerCli.handleCommandInput(...)` and loads the resulting binary
+    `src/main/resources/programs/` into the editor.
+  - **Load asm** / **Load bin** — open a source file into the editor, or a
+    flat binary image straight into RAM.
+  - **Save asm** / **Save bin** (`Ctrl+S` / `Ctrl+Shift+S`) — write the
+    editor text as `.asm`, or assemble it and write the flat binary image
+    without touching the running machine. `Save bin` refuses to write a
+    file if the source doesn't assemble. For every bundled example the
+    output is byte-identical to `AssemblerCli`'s; for programs whose
+    directives put data at a 4-byte-but-not-8-byte-aligned address it is
+    *more correct*: `AssemblerCli`'s writer steps in 8-byte strides and
+    silently zero-fills the unaligned word and everything after it (see
+    `ASM-003`).
+  - **Assemble & Load** — assembles the editor text and loads the result
     into the emulated 256 MiB RAM.
   - **Step** / **Step N** — calls `Motherboard.stepSystem()` (→
     `Cpu.step()`) once or N times.
   - **Run** / **Stop** — drives `Motherboard.stepSystem()` on a Swing
     `Timer` until you stop it or the CPU halts.
   - **Reset** — calls `Motherboard.reset()`.
+  - **Instructions** — opens a searchable opcode and condition-code
+    reference (effects, flags, examples, known gotchas).
 - **Tests as usage examples.** `CpuTest`
   ([source](../src/test/java/de/happybavarian07/computer/cpu/CpuTest.java))
   and `AssemblerCliTest`
@@ -185,14 +200,13 @@ does the same lexer→parser→resolver→encoder chain and additionally writes 
 flat little-endian binary image (8 bytes per word, zero-filled gaps) to disk,
 if you want a `.bin` artifact rather than loading directly into a live `Cpu`.
 
-**Heap note:** `new Motherboard()` (and the no-arg `new Cpu()`) eagerly
-allocate the full 256 MiB address space as individual bit-level objects. In a
-default-heap JVM this can throw `OutOfMemoryError` before you've written a
-single instruction; the GUI and the project's own tests apparently run with a
-large enough heap for this not to matter, but a small throwaway harness may
-need `-Xmx`, or can register a smaller `RamBusDevice` directly on a
-`SystemBus` for just the address ranges it actually touches (see
-`CpuTest`'s pattern of writing instructions directly via `SystemBus`).
+**Heap note:** earlier revisions eagerly allocated the whole address space
+as individual bit-level objects, so `new Motherboard()` could throw
+`OutOfMemoryError` on a default-heap JVM. That no longer applies on this
+branch (`6a033ae` reworked RAM storage): `new Motherboard()` with the full
+256 MiB map constructs in a few hundred milliseconds on a default heap. A
+throwaway harness can still register a smaller `RamBusDevice` on a
+`SystemBus` if it only touches a few address ranges (see `CpuTest`).
 
 ## 4. Architecture, in the terms a programmer needs
 
@@ -764,6 +778,18 @@ relevant source *and* exercising it — not inferred from one side alone.
    label from an earlier, pre-64-bit version of the ISA — the message text
    was not updated when the field became `imm32`. Harmless but can mislead
    someone searching for a real 16-bit field that doesn't exist.)*
+
+   **The decoder rejects negative immediates too (found later, verified by
+   hand-encoding `addi r1, r1, 0xFFFFFFFF`).** `InstructionDecoder.decode`
+   and `decodeNullable` compute `Math.toIntExact(wordValue & 0xFFFFFFFFL)`,
+   which throws `ArithmeticException: integer overflow` for any `imm32`
+   with the top bit set. So even bypassing the assembler, a 32-bit
+   two's-complement negative immediate cannot execute — and because the
+   disassembler and the GUI's disassembly panel go through the same decode,
+   `Disassembler.disassemble(0x0000000080000000L)` throws as well, despite
+   `DIS-001`'s "never crash on arbitrary bytes" requirement. Registers and
+   the ALU are fine with negatives (`0 - 4` gives `-4`, `N`/`LT`/`MI` behave);
+   the gap is entirely in immediates. Tracked in `ASM-003`.
 
 5. **`STORER`'s documented formula is reversed from its actual behavior.**
    See the note under [§6.6](#66-memory).
